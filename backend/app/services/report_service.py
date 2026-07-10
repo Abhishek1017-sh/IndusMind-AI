@@ -6,12 +6,14 @@ BOTH the /reports/generate endpoint and the AI chat's REPORTS intent, so a
 report requested in chat actually appears in the Reports section (rather than
 the old stub that only claimed to).
 """
+import os
 import uuid
 import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.report import Report, ReportType
 from app.models.user import User
 from app.services.report_generator import generate_pdf_report
@@ -136,8 +138,48 @@ def create_report(db: Session, user: User, title: str, report_type: ReportType) 
         file_path=pdf_path,
         generated_by=user.id,
     )
-    db.add(db_report)
-    db.commit()
-    db.refresh(db_report)
+    # The DB row is the source of truth. If persisting it fails, delete the
+    # PDF we just wrote so we never leave an orphaned file on disk (a file with
+    # no row can never appear in the Reports list — exactly the leftover we're
+    # cleaning up).
+    try:
+        db.add(db_report)
+        db.commit()
+        db.refresh(db_report)
+    except Exception:
+        db.rollback()
+        if os.path.exists(pdf_path):
+            try:
+                os.remove(pdf_path)
+            except OSError:
+                pass
+        raise
     logger.info(f"Generated {report_type.value} report '{title}' for user {user_id} ({len(citations)} source(s)).")
     return db_report, report_data
+
+
+def reconcile_report_files(db: Session) -> None:
+    """
+    Removes PDF files in REPORT_DIR that have no corresponding Report row —
+    the reports equivalent of the vector/graph reconciliation. This self-heals
+    orphaned report files left behind by the old silent-SQLite-fallback era (a
+    report row written to a now-abandoned database, its PDF stranded on disk),
+    so the reports folder always matches the Postgres source of truth.
+    """
+    report_dir = settings.REPORT_DIR
+    if not os.path.isdir(report_dir):
+        return
+    valid_paths = {os.path.normcase(os.path.abspath(p)) for (p,) in db.query(Report.file_path).all()}
+    removed = 0
+    for fname in os.listdir(report_dir):
+        if not fname.lower().endswith(".pdf"):
+            continue
+        fpath = os.path.abspath(os.path.join(report_dir, fname))
+        if os.path.normcase(fpath) not in valid_paths:
+            try:
+                os.remove(fpath)
+                removed += 1
+            except OSError as e:
+                logger.warning(f"Could not remove orphaned report file {fname}: {e}")
+    if removed:
+        logger.info(f"Reconciled reports folder: removed {removed} orphaned PDF file(s) with no database row.")

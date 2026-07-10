@@ -60,6 +60,69 @@ def test_maintenance_overview_populates_after_upload(client):
     assert len(body["documents"]) >= 1
 
 
+def test_maintenance_register_excludes_non_assets(client):
+    """
+    SOPs, contacts, dates and business/HR entities extracted from a document must
+    never show up in the maintainable asset register, and assets must carry a
+    semantic category. Failures/incidents/vendors live in their own buckets.
+    """
+    token = register_user(client, unique_email("assetreg"))
+    headers = auth_headers(token)
+    doc = (
+        b"Maintenance Log Work Order 88.\n"
+        b"Pump P-102 bearing failure in the Boiler Room. Compressor C-301 inspected.\n"
+        b"Reported by HR Department and Sales Region North. Contact: ops@novatech.com.\n"
+        b"May 2025. SOP-MECH-022 referenced.\n"
+    )
+    resp = client.post("/api/v1/documents/upload", headers=headers,
+                       files={"file": ("wo.txt", io.BytesIO(doc), "text/plain")})
+    assert resp.status_code == 201, resp.text
+
+    body = client.get("/api/v1/maintenance/overview", headers=headers).json()
+    assert body["has_data"] is True
+
+    names = {a["name"] for a in body["assets"]}
+    # Machines are present, and every asset carries a category.
+    assert any("P-102" in n for n in names)
+    assert all(a["category"] for a in body["assets"])
+
+    # Non-assets must be absent from the register.
+    for forbidden in ("SOP-MECH-022", "ops@novatech.com", "May 2025"):
+        assert not any(forbidden in n for n in names), f"{forbidden} must not be an asset"
+    assert not any("HR" in n or "Sales" in n or "Finance" in n for n in names)
+
+    # Separate buckets exist and never leak into `assets`.
+    for bucket in ("failures", "incidents", "vendors"):
+        assert bucket in body
+        for e in body[bucket]:
+            assert e["name"] not in names
+
+    # Search + category filter work server-side.
+    s = client.get("/api/v1/maintenance/overview?q=pump", headers=headers).json()
+    assert all("pump" in a["name"].lower() for a in s["assets"])
+
+
+def test_maintenance_asset_dossier_shape(client):
+    token = register_user(client, unique_email("dossier"))
+    headers = auth_headers(token)
+    client.post("/api/v1/documents/upload", headers=headers,
+                files={"file": ("m.txt", io.BytesIO(
+                    b"Maintenance Log: Pump P-102 seal replaced after bearing failure."), "text/plain")})
+
+    d = client.get("/api/v1/maintenance/asset/Pump%20P-102", headers=headers).json()
+    # Backward-compatible keys still present
+    for k in ("asset", "report", "citations"):
+        assert k in d
+    # Enriched dossier
+    for k in ("overview", "related_documents", "related_graph_nodes", "maintenance_history", "recommendations"):
+        assert k in d
+    assert d["overview"]["category"] == "Machines"
+    assert any(doc["filename"] == "m.txt" for doc in d["related_documents"])
+    # New RCA insight fields always exist
+    for k in ("contributing_factors", "criticality", "downtime_impact", "spare_parts_involved"):
+        assert k in d["report"]
+
+
 def test_compliance_overview_empty_state(client):
     token = register_user(client, unique_email("compempty"))
     resp = client.get("/api/v1/compliance/overview", headers=auth_headers(token))
@@ -155,3 +218,38 @@ def test_chat_report_request_actually_creates_report(client):
     dl = client.get(f"/api/v1/reports/download/{reports[0]['id']}", headers=headers)
     assert dl.status_code == 200
     assert dl.headers["content-type"] == "application/pdf"
+
+
+def test_orphaned_report_files_are_reconciled(client):
+    """
+    A PDF in the reports folder with no Report row (e.g. left behind by the old
+    SQLite-fallback era) must be purged by reconcile_report_files, while a file
+    backed by a real row is kept.
+    """
+    import os
+    from app.core.config import settings
+    from app.services.report_service import reconcile_report_files
+    from app.db.session import SessionLocal
+
+    # Create a real report (file + row) so we can confirm it's NOT deleted.
+    token = register_user(client, unique_email("orphanrep"))
+    headers = auth_headers(token)
+    client.post("/api/v1/documents/upload", headers=headers,
+                files={"file": ("d.txt", io.BytesIO(b"Pump P-102 maintenance record."), "text/plain")})
+    rep = client.post("/api/v1/reports/generate", headers=headers,
+                      json={"title": "Real report", "report_type": "MAINTENANCE"}).json()
+    real_path = os.path.join(settings.REPORT_DIR, os.path.basename(rep["file_path"]))
+    assert os.path.exists(real_path)
+
+    # Drop an orphaned PDF with no DB row.
+    orphan = os.path.join(settings.REPORT_DIR, "orphan_deadbeef_report.pdf")
+    with open(orphan, "wb") as f:
+        f.write(b"%PDF-1.4 orphan")
+    assert os.path.exists(orphan)
+
+    db = SessionLocal()
+    reconcile_report_files(db)
+    db.close()
+
+    assert not os.path.exists(orphan), "orphaned report file must be removed"
+    assert os.path.exists(real_path), "report file backed by a DB row must be kept"

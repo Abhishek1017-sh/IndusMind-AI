@@ -172,31 +172,64 @@ export async function fetchComplianceOverview(): Promise<ComplianceOverview> {
 }
 
 // ─── Maintenance ───────────────────────────────────────────────────────────
-export interface MaintenanceAsset { id: string; type: string; name: string; doc_count: number; }
+export interface MaintenanceAsset {
+  id: string; type: string; name: string; doc_count: number;
+  category: string;
+  document_ids: string[];
+  properties: Record<string, unknown>;
+}
 export interface MaintenanceDoc { id: string; filename: string; category: string | null; status: string; created_at: string | null; }
 export interface MaintenanceOverview {
   has_data: boolean;
   message: string;
   assets: MaintenanceAsset[];
   asset_counts: Record<string, number>;
+  category_counts: Record<string, number>;
+  categories: string[];
+  failures: MaintenanceAsset[];
+  incidents: MaintenanceAsset[];
+  vendors: MaintenanceAsset[];
   documents: MaintenanceDoc[];
   recent_incidents: MaintenanceDoc[];
   recurring_patterns: RecurringPattern[];
 }
-export async function fetchMaintenanceOverview(): Promise<MaintenanceOverview> {
-  const res = await fetch(`${API_BASE}/maintenance/overview`, { headers: getHeaders() });
+export async function fetchMaintenanceOverview(opts?: { q?: string; category?: string }): Promise<MaintenanceOverview> {
+  const params = new URLSearchParams();
+  if (opts?.q) params.set("q", opts.q);
+  if (opts?.category) params.set("category", opts.category);
+  const qs = params.toString();
+  const res = await fetch(`${API_BASE}/maintenance/overview${qs ? `?${qs}` : ""}`, { headers: getHeaders() });
   return handleResponse<MaintenanceOverview>(res);
+}
+
+export interface RelatedGraphNode { id: string; type: string; name: string; relationship: string; direction: "incoming" | "outgoing"; }
+export interface MaintenanceHistoryEntry { date: string; event: string; status: string; detail: string; source_document: string | null; }
+
+export interface AssetRca {
+  equipment_id: string; failure_mode: string; root_cause: string;
+  chronology: string[]; timeline?: TimelineEvent[];
+  contributing_factors: string[]; criticality: string; downtime_impact: string;
+  spare_parts_involved: string[];
+  maintenance_actions_taken: string[]; preventive_recommendations: string[];
+  lessons_learned: string[]; confidence_score: number;
 }
 
 export interface AssetDetail {
   asset: string;
-  report: {
-    equipment_id: string; failure_mode: string; root_cause: string;
-    chronology: string[]; timeline?: TimelineEvent[];
-    maintenance_actions_taken: string[]; preventive_recommendations: string[];
-    lessons_learned: string[]; confidence_score: number;
-  };
+  report: AssetRca;
   citations: Citation[];
+  overview: {
+    name: string;
+    category: string | null;
+    type: string | null;
+    properties: Record<string, unknown>;
+    document_count: number;
+    related_node_count: number;
+  };
+  related_documents: MaintenanceDoc[];
+  related_graph_nodes: RelatedGraphNode[];
+  maintenance_history: MaintenanceHistoryEntry[];
+  recommendations: string[];
 }
 export async function fetchAssetDetail(assetName: string): Promise<AssetDetail> {
   const res = await fetch(`${API_BASE}/maintenance/asset/${encodeURIComponent(assetName)}`, { headers: getHeaders() });

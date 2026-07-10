@@ -94,6 +94,18 @@ def on_startup():
     except Exception as e:
         logger.error(f"Failed to reconcile graph database with documents: {e}")
 
+    # 5. Reconcile the reports folder against the database — deletes orphaned
+    #    PDF files that have no Report row (e.g. reports generated into an
+    #    abandoned SQLite-fallback database), so the reports folder always
+    #    matches the Postgres source of truth.
+    try:
+        from app.services.report_service import reconcile_report_files
+        db = SessionLocal()
+        reconcile_report_files(db)
+        db.close()
+    except Exception as e:
+        logger.error(f"Failed to reconcile reports folder with database: {e}")
+
 
 @app.get("/")
 def read_root():

@@ -46,10 +46,13 @@ Please formulate an RCA with the following sections, grounded strictly in the co
 2. Failure mode identification.
 3. Chronological timeline of the failure (containing structured objects with time, event, status, and detail).
 4. Underlying root cause (using 5-Whys methodology if applicable).
-5. Specific maintenance actions performed or proposed.
-6. Long-term preventive maintenance recommendations.
-7. Lessons learned.
-8. Confidence and explainability metrics.
+5. Contributing factors that made the failure more likely (operating conditions, deferred maintenance, etc.).
+6. Criticality of this asset and the operational/downtime impact of the failure.
+7. Spare parts or components involved in the failure or its repair.
+8. Specific maintenance actions performed or proposed.
+9. Long-term preventive maintenance recommendations (each concrete and actionable).
+10. Lessons learned.
+11. Confidence and explainability metrics.
 
 If the context does not contain enough information for a section, use an empty list/string for it
 rather than inventing details, and reflect the gap honestly in "root_cause".
@@ -64,6 +67,10 @@ Return your response in EXACT JSON format with these keys:
   - "status": (string, one of: "normal", "warning", "ignored", "failure", "repair")
   - "detail": (string)
 - "root_cause": (string)
+- "contributing_factors": list of strings (empty list if none stated in context)
+- "criticality": (string, one of: "Critical", "High", "Medium", "Low", or "" if not inferable from context)
+- "downtime_impact": (string describing operational impact, or "" if not stated)
+- "spare_parts_involved": list of strings of parts/components named in the context
 - "maintenance_actions_taken": list of strings of actions performed
 - "preventive_recommendations": list of strings for preventing recurrence
 - "lessons_learned": list of strings
@@ -84,10 +91,33 @@ Do not wrap in markdown or add explanations outside the JSON block.
                 prompt,
                 generation_config={"response_mime_type": "application/json"}
             )
-            return json.loads(response.text.strip())
+            data = json.loads(response.text.strip())
+            # Gemini may omit optional sections; guarantee every key exists so
+            # downstream consumers never have to guard each field.
+            return {**self._rca_defaults(), **data}
         except Exception as e:
             logger.error(f"MaintenanceAgent RCA generation failed: {e}. Falling back to extractive summary.")
             return self._extractive_rca(query, context_chunks)
+
+    @staticmethod
+    def _rca_defaults() -> Dict[str, Any]:
+        return {
+            "equipment_id": "",
+            "failure_mode": "",
+            "chronology": [],
+            "timeline": [],
+            "root_cause": "",
+            "contributing_factors": [],
+            "criticality": "",
+            "downtime_impact": "",
+            "spare_parts_involved": [],
+            "maintenance_actions_taken": [],
+            "preventive_recommendations": [],
+            "lessons_learned": [],
+            "confidence_score": 0.0,
+            "reasoning_steps": [],
+            "evidence_base": [],
+        }
 
     def _not_found_rca(self, query: str) -> Dict[str, Any]:
         message = not_found_message(query)
@@ -97,6 +127,10 @@ Do not wrap in markdown or add explanations outside the JSON block.
             "chronology": [],
             "timeline": [],
             "root_cause": message,
+            "contributing_factors": [],
+            "criticality": "",
+            "downtime_impact": "",
+            "spare_parts_involved": [],
             "maintenance_actions_taken": [],
             "preventive_recommendations": [],
             "lessons_learned": [],
@@ -120,6 +154,10 @@ Do not wrap in markdown or add explanations outside the JSON block.
             "chronology": [],
             "timeline": [],
             "root_cause": f"AI reasoning is currently unavailable. Summary from your uploaded documents: {summary}",
+            "contributing_factors": [],
+            "criticality": "",
+            "downtime_impact": "",
+            "spare_parts_involved": [],
             "maintenance_actions_taken": [],
             "preventive_recommendations": [],
             "lessons_learned": [],

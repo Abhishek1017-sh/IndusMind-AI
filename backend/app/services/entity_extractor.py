@@ -230,20 +230,31 @@ Here is the document text:
 Your task is to identify, wherever actually present in the text:
 1. Entities:
    - "Person" (name, role/title if stated)
-   - "Organization" (name, and role such as employer, university, or event host)
+   - "Organization" (name, and role such as employer, university, event host, vendor or supplier)
    - "Skill" (name, e.g. a technology, programming language, or competency)
    - "Project" (name, description, technologies used)
    - "Event" (name, date, location)
-   - Any domain-specific complex entities actually described in the text (e.g. "Failure",
-     "MaintenanceRecord", "InspectionReport" for industrial/maintenance documents)
-2. Relationships (edges) connecting ANY of the entities, for example:
-   - Person WORKED_AT Organization
-   - Person HAS_SKILL Skill
-   - Person WORKED_ON Project
-   - Project USES_TECHNOLOGY Skill
-   - Person ATTENDED Event
-   - Person STUDIED_AT Organization
-   - (or industrial relations like MaintenanceRecord ON_MACHINE Machine, when relevant)
+   - For industrial / maintenance / operations documents, also extract the specific entities
+     actually described: "Machine", "Equipment", "Server", "Vehicle", "SparePart", "Facility",
+     "Failure", "Incident", "MaintenanceRecord", "InspectionReport", "Vendor".
+     Give each a clear "name". Do NOT invent assets that are not named in the text.
+2. Relationships (edges) connecting ANY of the entities. Prefer these specific, meaningful
+   relationship types whenever the text actually supports them — never emit a generic
+   RELATED_TO if a specific one applies, and never assert a relationship the text does
+   not state:
+   - Machine HAS_FAILURE Failure
+   - Failure RESOLVED_BY MaintenanceRecord
+   - MaintenanceRecord PERFORMED_BY Person
+   - Machine LOCATED_IN Facility
+   - SparePart INSTALLED_IN Machine
+   - Machine SUPPLIED_BY Vendor
+   - InspectionReport REFERENCES SOP
+   - InspectionReport INSPECTED Machine
+   - Incident AFFECTED Machine
+   - Person OPERATES Machine
+   (and, for non-industrial documents: Person WORKED_AT Organization, Person HAS_SKILL Skill,
+    Person WORKED_ON Project, Project USES_TECHNOLOGY Skill, Person ATTENDED Event,
+    Person STUDIED_AT Organization)
 
 Provide your response in EXACT JSON format containing two arrays: "nodes" (for newly
 discovered entities, each with a unique ID such as "PERSON-JOHN-DOE" or "ORG-ACME-INC")
