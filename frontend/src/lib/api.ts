@@ -1,7 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
 function getHeaders(contentType = "application/json"): HeadersInit {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem("im_token") : null;
   const headers: Record<string, string> = {};
   if (contentType !== "multipart/form-data") headers["Content-Type"] = contentType;
   if (token) headers["Authorization"] = `Bearer ${token}`;

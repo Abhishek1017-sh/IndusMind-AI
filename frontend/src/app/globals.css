@@ -2,26 +2,26 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 213 31% 91%;
-    --card: 222 47% 11%;
-    --card-foreground: 213 31% 95%;
-    --popover: 222 47% 9%;
-    --popover-foreground: 213 31% 95%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 222 47% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 223 47% 13%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-    --accent: 142.1 70.6% 45.3%;
+    --background: 60 10% 97.6%;         /* #FAFAF8 */
+    --foreground: 222 47% 11%;          /* #0F172A */
+    --card: 0 0% 100%;                  /* #FFFFFF */
+    --card-foreground: 222 47% 11%;     /* #0F172A */
+    --popover: 0 0% 100%;               /* #FFFFFF */
+    --popover-foreground: 222 47% 11%;  /* #0F172A */
+    --primary: 221.2 83.2% 53.3%;       /* #2563EB */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;         /* #F1F5F9 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 215.4 16.3% 56.9%;         /* #64748B */
+    --muted-foreground: 217.9 10.6% 64.9%; /* #94A3B8 */
+    --accent: 187.9 92.1% 42.4%;        /* #06B6D4 */
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 72.2% 50.6%;       /* #DC2626 */
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 0.75rem;
+    --border: 214.3 31.8% 91.4%;        /* #E2E8F0 */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;                  /* 12px rounded corners */
   }
 }
 
@@ -51,75 +51,218 @@
 }
 
 body {
-  background-color: hsl(var(--background));
+  background-color: #FAFAF8;
   color: hsl(var(--foreground));
   font-family: var(--font-sans), sans-serif;
   overflow-x: hidden;
 }
 
-/* Glassmorphism custom helpers */
+/* ============================================================
+   PREMIUM ENTERPRISE CARD STYLES
+   ============================================================ */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 }
-
 .glass-card {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.03), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .glass-card-hover:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
-  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.05), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
 }
 
-/* Custom glow text effects */
-.glow-text-blue {
-  text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-}
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #FAFAF8; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-.glow-text-emerald {
-  text-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
-}
-
-/* Scrollbars styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.2);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* React Flow customizations for Dark Theme */
+/* ============================================================
+   REACT FLOW — LIGHT THEME
+   ============================================================ */
+.react-flow,
+.react-flow__pane,
+.react-flow__background,
 .react-flow__renderer {
-  background-color: #05070f !important;
+  background-color: #FAFAF8 !important;
 }
-
-.react-flow__node {
-  border-radius: 8px !important;
-}
-
+.react-flow__node { border-radius: 14px !important; }
 .react-flow__controls-button {
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
-  border-bottom: 1px solid #1e293b !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.react-flow__controls-button:hover { background-color: #f1f5f9 !important; }
+
+/* ============================================================
+   KEYFRAME ANIMATIONS
+   ============================================================ */
+
+/* Fade in */
+@keyframes im-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.react-flow__controls-button:hover {
-  background-color: #1e293b !important;
+/* Fade in + scale up */
+@keyframes im-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
+/* Slide up */
+@keyframes im-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Slide down (for top bar) */
+@keyframes im-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Shimmer for skeleton loaders */
+@keyframes im-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+/* Progress bar fill */
+@keyframes im-progress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* Subtle pulse-glow for logo/icon */
+@keyframes im-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.25); }
+  50%       { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+}
+
+/* Rotating ring */
+@keyframes im-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Dash flow for SVG stroke-dashoffset */
+@keyframes im-dash {
+  from { stroke-dashoffset: 300; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* Node appear */
+@keyframes im-node-appear {
+  from { opacity: 0; transform: scale(0.6) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Floating / levitate */
+@keyframes im-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+/* Typing dots */
+@keyframes im-dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Top bar progress sweep */
+@keyframes im-bar-sweep {
+  0%   { width: 0%; opacity: 1; }
+  70%  { width: 85%; opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+
+/* Fade out */
+@keyframes im-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Rotate */
+@keyframes im-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   ANIMATION UTILITY CLASSES
+   ============================================================ */
+.im-fade-in        { animation: im-fade-in 0.4s ease both; }
+.im-scale-in       { animation: im-scale-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+.im-slide-up       { animation: im-slide-up 0.45s cubic-bezier(0.4,0,0.2,1) both; }
+.im-slide-down     { animation: im-slide-down 0.3s cubic-bezier(0.4,0,0.2,1) both; }
+.im-float          { animation: im-float 3s ease-in-out infinite; }
+.im-spin           { animation: im-spin 1s linear infinite; }
+.im-pulse-glow     { animation: im-pulse-glow 2s ease-in-out infinite; }
+
+/* Stagger helpers */
+.im-delay-100 { animation-delay: 100ms; }
+.im-delay-200 { animation-delay: 200ms; }
+.im-delay-300 { animation-delay: 300ms; }
+.im-delay-400 { animation-delay: 400ms; }
+.im-delay-500 { animation-delay: 500ms; }
+.im-delay-600 { animation-delay: 600ms; }
+.im-delay-700 { animation-delay: 700ms; }
+.im-delay-800 { animation-delay: 800ms; }
+
+/* ============================================================
+   SKELETON LOADER
+   ============================================================ */
+.im-skeleton {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0px,
+    #e8edf5 40px,
+    #f1f5f9 80px
+  );
+  background-size: 600px 100%;
+  animation: im-shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ============================================================
+   PAGE ENTRANCE TRANSITIONS
+   Every page content area auto-animates in
+   ============================================================ */
+.im-page-enter {
+  animation: im-fade-in 0.35s ease both, im-slide-up 0.35s ease both;
+}
+
+/* ============================================================
+   TOP PROGRESS BAR
+   ============================================================ */
+.im-top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563EB, #60A5FA, #2563EB);
+  background-size: 200% 100%;
+  animation: im-bar-sweep 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: 9999;
+}
+
+/* ============================================================
+   MICRO-ANIMATIONS — hover elevation for cards
+   ============================================================ */
+.im-card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.im-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.07);
+  border-color: #c7d7f0;
+}
