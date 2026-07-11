@@ -151,6 +151,11 @@ def delete_document(
     # Remove its entities/relationships from the knowledge graph
     graph_db.remove_document_entities(str(doc.id))
 
+    # Remove its assets/metadata/incidents from the Postgres asset store,
+    # deleting assets no surviving document references anymore.
+    from app.services import asset_store
+    asset_store.remove_document(db, str(doc.id))
+
     db.delete(doc)
     db.commit()
     return {"detail": "Document successfully deleted"}

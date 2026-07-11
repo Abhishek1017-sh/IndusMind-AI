@@ -314,8 +314,12 @@ function ChatInner() {
   const [explainMsg, setExplainMsg] = useState<Message | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    // Block body (returns undefined) — a concise arrow here would implicitly
+    // return the scrollIntoView() result, which React flags as an invalid
+    // effect return value.
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Pre-fill from dashboard quick-query link
   useEffect(() => {

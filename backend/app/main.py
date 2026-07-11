@@ -106,6 +106,25 @@ def on_startup():
     except Exception as e:
         logger.error(f"Failed to reconcile reports folder with database: {e}")
 
+    # 6. Backfill the PostgreSQL asset store from each user's knowledge graph,
+    #    so assets from documents uploaded before the asset store existed still
+    #    appear. Idempotent (upsert by canonical key).
+    try:
+        from app.services import asset_store
+        from app.services.graph_db import graph_db as _gdb
+        db = SessionLocal()
+        owner_ids = {str(uid) for (uid,) in db.query(Document.uploaded_by).distinct().all()}
+        for uid in owner_ids:
+            try:
+                asset_store.sync_from_graph(db, uid, _gdb.get_owned_graph(uid))
+            except Exception as inner:
+                logger.error(f"Asset backfill failed for user {uid}: {inner}")
+                db.rollback()
+        db.close()
+        logger.info(f"Asset store backfilled for {len(owner_ids)} user(s).")
+    except Exception as e:
+        logger.error(f"Failed to backfill asset store: {e}")
+
 
 @app.get("/")
 def read_root():

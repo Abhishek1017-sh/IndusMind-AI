@@ -8,22 +8,33 @@ import {
 import {
   Wrench, Loader2, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Clock,
   AlertTriangle, Zap, RotateCcw, CheckCheck, Cpu, Package, MapPin, Server, Truck,
-  Sparkles, Boxes, RefreshCw, Search, Network, Building2, ShieldAlert, Gauge, X,
+  Sparkles, Boxes, RefreshCw, Search, Network, Building2, ShieldAlert, Gauge,
+  Activity, AlertOctagon, TriangleAlert, CircleGauge,
 } from "lucide-react";
 
-// ─── Category presentation (matches backend asset_classifier categories) ─────
-const CATEGORY_META: Record<string, { Icon: React.ElementType; color: string }> = {
-  Machines:     { Icon: Cpu,        color: "#3b82f6" },
-  Equipment:    { Icon: Gauge,      color: "#06b6d4" },
-  Servers:      { Icon: Server,     color: "#8b5cf6" },
-  Vehicles:     { Icon: Truck,      color: "#eab308" },
-  Facilities:   { Icon: Building2,  color: "#14b8a6" },
-  "Spare Parts":{ Icon: Package,    color: "#f97316" },
-  Failures:     { Icon: Zap,        color: "#ef4444" },
-  Incidents:    { Icon: ShieldAlert,color: "#f43f5e" },
-  Vendors:      { Icon: MapPin,     color: "#a855f7" },
+// ─── Asset-type presentation (icon per specific taxonomy type) ───────────────
+const TYPE_META: Record<string, { Icon: React.ElementType; color: string }> = {
+  Pump: { Icon: Cpu, color: "#3b82f6" }, Motor: { Icon: Cpu, color: "#3b82f6" },
+  Compressor: { Icon: Cpu, color: "#3b82f6" }, Turbine: { Icon: Cpu, color: "#3b82f6" },
+  Generator: { Icon: Zap, color: "#3b82f6" }, Transformer: { Icon: Zap, color: "#3b82f6" },
+  Valve: { Icon: Gauge, color: "#06b6d4" }, Conveyor: { Icon: Activity, color: "#06b6d4" },
+  Machine: { Icon: Cpu, color: "#3b82f6" }, Equipment: { Icon: Gauge, color: "#06b6d4" },
+  Sensor: { Icon: CircleGauge, color: "#06b6d4" }, PLC: { Icon: Cpu, color: "#8b5cf6" },
+  Tool: { Icon: Wrench, color: "#06b6d4" },
+  Server: { Icon: Server, color: "#8b5cf6" }, Database: { Icon: Server, color: "#8b5cf6" },
+  "Storage Cluster": { Icon: Server, color: "#8b5cf6" }, "Network Device": { Icon: Network, color: "#8b5cf6" },
+  Vehicle: { Icon: Truck, color: "#eab308" },
+  Facility: { Icon: Building2, color: "#14b8a6" }, Plant: { Icon: Building2, color: "#14b8a6" },
+  "Production Line": { Icon: Activity, color: "#14b8a6" },
+  "Spare Part": { Icon: Package, color: "#f97316" }, Vendor: { Icon: MapPin, color: "#a855f7" },
 };
-const catMeta = (c: string) => CATEGORY_META[c] ?? { Icon: Boxes, color: "#64748b" };
+const typeMeta = (t: string) => TYPE_META[t] ?? { Icon: Boxes, color: "#64748b" };
+
+// ─── Risk colour coding (green / yellow / orange / red) ──────────────────────
+const RISK_COLOR: Record<string, string> = {
+  Low: "#10b981", Medium: "#eab308", High: "#f97316", Critical: "#ef4444",
+};
+const riskColor = (r?: string) => RISK_COLOR[r ?? "Low"] ?? "#64748b";
 
 const CRITICALITY_COLOR: Record<string, string> = {
   Critical: "#ef4444", High: "#f97316", Medium: "#f59e0b", Low: "#10b981",
@@ -148,11 +159,8 @@ export default function MaintenancePage() {
   // the same filters exist server-side (?q=&category=) for large registers.
   const visibleAssets = useMemo(() => {
     if (!overview) return [];
-    const pool: MaintenanceAsset[] =
-      category === "Failures" ? overview.failures
-      : category === "Incidents" ? overview.incidents
-      : category === "Vendors" ? overview.vendors
-      : category ? overview.assets.filter(a => a.category === category)
+    const pool: MaintenanceAsset[] = category
+      ? overview.assets.filter(a => a.asset_type === category)
       : overview.assets;
     const needle = search.trim().toLowerCase();
     return needle ? pool.filter(a => a.name.toLowerCase().includes(needle)) : pool;
@@ -211,40 +219,54 @@ export default function MaintenancePage() {
         </div>
       ) : (
         <>
-          {/* Category tiles */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-            {overview.categories.filter(c => (overview.category_counts[c] ?? 0) > 0).map(c => {
-              const { Icon, color } = catMeta(c);
-              const active = category === c;
-              return (
-                <button key={c} onClick={() => setCategory(active ? null : c)}
-                  className="glass-card rounded-xl p-4 text-left transition-all hover:scale-[1.02]"
-                  style={active ? { border: `1.5px solid ${color}70`, background: `${color}12` } : undefined}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Icon className="w-4 h-4" style={{ color }} />
-                    <span className="text-xl font-bold" style={{ color }}>{overview.category_counts[c]}</span>
-                  </div>
-                  <p className="text-xs text-slate-500">{c}</p>
-                </button>
-              );
-            })}
+          {/* KPI row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+            {[
+              { label: "Total Assets", value: overview.kpis.total_assets, Icon: Boxes, color: "#3b82f6" },
+              { label: "Critical Assets", value: overview.kpis.critical_assets, Icon: AlertOctagon, color: "#f97316" },
+              { label: "Open Incidents", value: overview.kpis.open_incidents, Icon: ShieldAlert, color: "#ef4444" },
+              { label: "High Risk", value: overview.kpis.high_risk_assets, Icon: TriangleAlert, color: "#ef4444" },
+              { label: "Missing Maintenance", value: overview.kpis.assets_missing_maintenance, Icon: Clock, color: "#eab308" },
+              { label: "Active Alerts", value: overview.kpis.assets_with_alerts, Icon: Zap, color: "#f43f5e" },
+            ].map(k => (
+              <div key={k.label} className="glass-card rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <k.Icon className="w-4 h-4" style={{ color: k.color }} />
+                  <span className="text-xl font-bold" style={{ color: k.color }}>{k.value}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-tight">{k.label}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Search + active filter */}
-          <div className="flex items-center gap-3 mb-5 flex-wrap">
-            <div className="relative flex-1 min-w-56">
+          {/* Search + asset-type filter chips */}
+          <div className="flex flex-col gap-3 mb-5">
+            <div className="relative">
               <Search className="w-4 h-4 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search assets by name…"
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm text-slate-200 placeholder:text-slate-600 outline-none"
                 style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(255,255,255,0.08)" }} />
             </div>
-            {category && (
-              <button onClick={() => setCategory(null)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium"
-                style={{ background: `${catMeta(category).color}18`, color: catMeta(category).color, border: `1px solid ${catMeta(category).color}40` }}>
-                {category} <X className="w-3 h-3" />
-              </button>
+            {overview.asset_types.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => setCategory(null)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                  style={!category ? { background: "rgba(59,130,246,0.18)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.4)" } : { background: "rgba(255,255,255,0.04)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  All ({overview.kpis.total_assets})
+                </button>
+                {overview.asset_types.map(t => {
+                  const active = category === t;
+                  const { color } = typeMeta(t);
+                  return (
+                    <button key={t} onClick={() => setCategory(active ? null : t)}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                      style={active ? { background: `${color}22`, color, border: `1px solid ${color}55` } : { background: "rgba(255,255,255,0.04)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      {t} ({overview.type_counts[t]})
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 
@@ -261,20 +283,41 @@ export default function MaintenancePage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {visibleAssets.map(a => {
-                      const { Icon, color } = catMeta(a.category);
+                      const { Icon, color } = typeMeta(a.asset_type);
+                      const rColor = riskColor(a.risk_level);
                       const active = selected === a.name;
-                      const status = a.properties?.status as string | undefined;
+                      const needsReview = a.confidence_band === "Needs Review";
+                      const status = a.status && a.status !== "Unknown" ? a.status : undefined;
                       return (
                         <button key={a.id} onClick={() => analyzeAsset(a.name)}
-                          className="flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:scale-[1.01]"
+                          className="relative flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:scale-[1.01] overflow-hidden"
                           style={{ background: active ? `${color}18` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? `${color}55` : "rgba(255,255,255,0.07)"}` }}>
-                          <Icon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color }} />
+                          {/* Risk colour bar (green/yellow/orange/red) */}
+                          <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: rColor }} />
+                          <Icon className="w-4 h-4 flex-shrink-0 mt-0.5 ml-1" style={{ color }} />
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-slate-200 truncate">{a.name}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              {a.category} · {a.doc_count} doc{a.doc_count === 1 ? "" : "s"}
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-medium text-slate-200 truncate">{a.name}</p>
+                              {needsReview && (
+                                <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-semibold"
+                                  style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>REVIEW</span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                              {a.asset_type}
+                              {a.location ? ` · ${a.location}` : ""}
                               {status ? ` · ${status}` : ""}
                             </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                                style={{ background: `${rColor}18`, color: rColor }}>{a.risk_level ?? "Low"}</span>
+                              {(a.incident_count ?? 0) > 0 && (
+                                <span className="text-[9px] text-red-400 flex items-center gap-0.5">
+                                  <Zap className="w-2.5 h-2.5" /> {a.incident_count}
+                                </span>
+                              )}
+                              <span className="text-[9px] text-slate-600">{a.doc_count} doc{a.doc_count === 1 ? "" : "s"}</span>
+                            </div>
                           </div>
                         </button>
                       );
@@ -299,16 +342,28 @@ export default function MaintenancePage() {
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           <span className="text-xs text-emerald-400 font-medium">Dossier ready</span>
-                          {detail.overview.category && (
+                          {detail.overview.asset_type && (
                             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                              style={{ background: `${catMeta(detail.overview.category).color}18`, color: catMeta(detail.overview.category).color }}>
-                              {detail.overview.category}
+                              style={{ background: `${typeMeta(detail.overview.asset_type).color}18`, color: typeMeta(detail.overview.asset_type).color }}>
+                              {detail.overview.asset_type}
+                            </span>
+                          )}
+                          {detail.overview.risk_level && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                              style={{ background: `${riskColor(detail.overview.risk_level)}18`, color: riskColor(detail.overview.risk_level) }}>
+                              {detail.overview.risk_level} risk
                             </span>
                           )}
                           {crit && (
                             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                               style={{ background: `${CRITICALITY_COLOR[crit] ?? "#64748b"}18`, color: CRITICALITY_COLOR[crit] ?? "#64748b" }}>
                               {crit} criticality
+                            </span>
+                          )}
+                          {detail.overview.confidence_band === "Needs Review" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                              style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>
+                              Low confidence
                             </span>
                           )}
                         </div>
@@ -369,6 +424,58 @@ export default function MaintenancePage() {
 
             {/* Right: context */}
             <div className="space-y-4">
+              {/* Specifications — persisted metadata with provenance (source doc) */}
+              {detail && Object.keys(detail.metadata).length > 0 && (
+                <div className="glass-card rounded-2xl p-4">
+                  <p className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2"><Gauge className="w-3.5 h-3.5 text-cyan-400" /> Specifications</p>
+                  <div className="space-y-2">
+                    {Object.entries(detail.metadata).map(([field, m]) => (
+                      <div key={field} className="px-3 py-2 rounded-lg" style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.12)" }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-slate-500 capitalize">{field.replace(/_/g, " ")}</span>
+                          {m.source_document && <span className="text-[9px] text-slate-600 truncate max-w-[45%]" title={`Source: ${m.source_document}`}>📄 {m.source_document}</span>}
+                        </div>
+                        <p className="text-xs text-slate-200 mt-0.5">{m.value}</p>
+                        {m.snippet && <p className="text-[10px] text-slate-600 mt-0.5 italic truncate" title={m.snippet}>“{m.snippet}”</p>}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-slate-600 mt-2">Extracted from your documents — every value cites its source.</p>
+                </div>
+              )}
+
+              {/* Incidents (structured, from the asset store) */}
+              {detail && detail.incidents.length > 0 && (
+                <div className="glass-card rounded-2xl p-4">
+                  <p className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2"><ShieldAlert className="w-3.5 h-3.5 text-red-400" /> Incidents</p>
+                  <div className="space-y-2">
+                    {detail.incidents.map(inc => (
+                      <div key={inc.id} className="px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.12)" }}>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-medium text-slate-200 truncate flex-1">{inc.title}</p>
+                          {inc.severity && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${riskColor(inc.severity)}18`, color: riskColor(inc.severity) }}>{inc.severity}</span>}
+                        </div>
+                        {inc.root_cause && <p className="text-[10px] text-slate-500 mt-0.5">Root cause: {inc.root_cause}</p>}
+                        {inc.downtime && <p className="text-[10px] text-amber-400/80 mt-0.5">Downtime: {inc.downtime}</p>}
+                        {inc.source_document && <p className="text-[9px] text-slate-600 mt-0.5">📄 {inc.source_document}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Aliases (merged duplicate names) */}
+              {detail && detail.aliases.length > 0 && (
+                <div className="glass-card rounded-2xl p-4">
+                  <p className="text-xs font-semibold text-slate-400 mb-2">Also known as</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detail.aliases.map(a => (
+                      <span key={a} className="text-[10px] px-2 py-0.5 rounded-full text-slate-400" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>{a}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Section title="Recommendations" items={detail?.recommendations} color="#3b82f6" />
               <Section title="Spare Parts Involved" items={rca?.spare_parts_involved} color="#f97316" />
 

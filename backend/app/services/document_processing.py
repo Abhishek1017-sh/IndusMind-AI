@@ -113,6 +113,17 @@ def process_document_task(document_id: str, session_id: str) -> None:
             logger.error(f"Neo4j extraction/sync failed (non-blocking for document status): {graph_err}")
             logger.error(traceback.format_exc())
 
+        # Step 5.5: Persist assets to the PostgreSQL asset store (source of
+        # truth), enrich their metadata and extract incidents from this
+        # document. Non-blocking — a failure here must never fail the upload.
+        try:
+            _sync_asset_store(db, document, text_content)
+            logger.info("Asset store updated successfully.")
+        except Exception as asset_err:
+            logger.error(f"Asset store sync failed (non-blocking): {asset_err}")
+            logger.error(traceback.format_exc())
+            db.rollback()
+
         # Step 6: Mark document as COMPLETED
         document.status = DocumentStatus.COMPLETED
         db.commit()
@@ -134,3 +145,57 @@ def process_document_task(document_id: str, session_id: str) -> None:
 
     finally:
         db.close()
+
+
+def _sync_asset_store(db, document, text_content: str) -> None:
+    """
+    Populate the PostgreSQL asset store from this user's current knowledge
+    graph, then (when Gemini is available) enrich the assets' metadata and
+    extract incidents from THIS document's text. Grounded and non-inventive:
+    metadata/incidents come only from the document, and stay NULL/empty when
+    Gemini is offline.
+    """
+    from app.services.graph_db import graph_db
+    from app.services import asset_store
+    from app.services.metadata_enricher import enrich_assets
+    from app.services.incident_extractor import extract_incidents
+
+    user_id = str(document.uploaded_by)
+    doc_id = str(document.id)
+
+    # 1. Upsert/refresh assets from the graph (dedup + document links).
+    graph = graph_db.get_owned_graph(user_id)
+    asset_store.sync_from_graph(db, user_id, graph)
+
+    # 2. The assets this document actually references (by document link).
+    assets = asset_store.list_assets(db, user_id)
+    doc_assets = [
+        a for a in assets
+        if any(str(link.document_id) == doc_id for link in a.documents)
+    ]
+    asset_names = [a.name for a in doc_assets]
+    if not asset_names:
+        db.commit()
+        return
+
+    # 3. Metadata enrichment with provenance (Gemini; NULL when offline).
+    enriched = enrich_assets(text_content, asset_names)
+    by_name = {a.name: a for a in doc_assets}
+    for aname, fields in enriched.items():
+        asset = by_name.get(aname)
+        if not asset:
+            continue
+        for field, spec in fields.items():
+            asset_store.set_metadata(
+                db, asset, field, spec.get("value"), confidence=spec.get("confidence"),
+                document_id=doc_id, source_filename=document.filename, snippet=spec.get("snippet"),
+            )
+
+    # 4. Structured incidents linked to affected assets (Gemini; [] offline).
+    for inc in extract_incidents(text_content, asset_names):
+        asset_store.add_incident(
+            db, user_id, inc, inc.get("affected_assets") or [],
+            document_id=doc_id, source_filename=document.filename,
+        )
+
+    db.commit()

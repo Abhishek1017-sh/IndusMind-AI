@@ -102,6 +102,35 @@ def test_maintenance_register_excludes_non_assets(client):
     assert all("pump" in a["name"].lower() for a in s["assets"])
 
 
+def test_maintenance_overview_kpis_and_confidence(client):
+    """Overview must expose KPIs, specific asset types, and confidence bands."""
+    token = register_user(client, unique_email("kpis"))
+    headers = auth_headers(token)
+    client.post("/api/v1/documents/upload", headers=headers,
+                files={"file": ("wo.txt", io.BytesIO(
+                    b"Maintenance Log: Pump P-102 and Compressor C-301 serviced."), "text/plain")})
+
+    body = client.get("/api/v1/maintenance/overview", headers=headers).json()
+    assert "kpis" in body
+    for k in ("total_assets", "critical_assets", "open_incidents", "high_risk_assets",
+              "assets_missing_maintenance", "assets_with_alerts"):
+        assert k in body["kpis"]
+    assert body["kpis"]["total_assets"] == len(body["assets"])
+
+    for a in body["assets"]:
+        # Specific taxonomy type + confidence band on every asset.
+        assert a["asset_type"] in ("Pump", "Compressor", "Machine", "Equipment")
+        assert a["confidence_band"] in ("Needs Review", "Review Suggested", "Auto Approved")
+        assert 0.0 <= a["confidence"] <= 1.0
+        assert a["risk_level"] in ("Low", "Medium", "High", "Critical")
+
+    # Filter by a specific asset type works.
+    types = body["asset_types"]
+    if types:
+        filtered = client.get(f"/api/v1/maintenance/overview?category={types[0]}", headers=headers).json()
+        assert all(a["asset_type"] == types[0] for a in filtered["assets"])
+
+
 def test_maintenance_asset_dossier_shape(client):
     token = register_user(client, unique_email("dossier"))
     headers = auth_headers(token)

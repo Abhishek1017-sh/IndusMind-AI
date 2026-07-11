@@ -174,15 +174,36 @@ export async function fetchComplianceOverview(): Promise<ComplianceOverview> {
 // ─── Maintenance ───────────────────────────────────────────────────────────
 export interface MaintenanceAsset {
   id: string; type: string; name: string; doc_count: number;
-  category: string;
+  category: string | null;
+  asset_type: string;
+  group: string;
+  confidence: number;
+  confidence_band: string;
+  reason: string;
+  risk_level?: string;
+  incident_count?: number;
+  status?: string;
+  location?: string | null;
   document_ids: string[];
   properties: Record<string, unknown>;
+}
+
+export interface MaintenanceKpis {
+  total_assets: number;
+  critical_assets: number;
+  open_incidents: number;
+  high_risk_assets: number;
+  assets_missing_maintenance: number;
+  assets_with_alerts: number;
 }
 export interface MaintenanceDoc { id: string; filename: string; category: string | null; status: string; created_at: string | null; }
 export interface MaintenanceOverview {
   has_data: boolean;
   message: string;
+  kpis: MaintenanceKpis;
   assets: MaintenanceAsset[];
+  type_counts: Record<string, number>;
+  asset_types: string[];
   asset_counts: Record<string, number>;
   category_counts: Record<string, number>;
   categories: string[];
@@ -214,18 +235,45 @@ export interface AssetRca {
   lessons_learned: string[]; confidence_score: number;
 }
 
+export interface AssetMetadataField {
+  value: string;
+  confidence: number | null;
+  source_document: string | null;
+  page_number: number | null;
+  snippet: string | null;
+}
+
+export interface AssetIncident {
+  id: string; title: string; severity: string | null; symptoms: string[];
+  root_cause: string | null; impact: string | null; downtime: string | null;
+  corrective_actions: string[]; preventive_actions: string[]; recommendations: string[];
+  confidence: number | null; source_document: string | null;
+}
+
 export interface AssetDetail {
   asset: string;
   report: AssetRca;
   citations: Citation[];
   overview: {
     name: string;
+    asset_type: string | null;
     category: string | null;
     type: string | null;
+    confidence: number | null;
+    confidence_band: string | null;
+    risk_level: string | null;
+    criticality: string | null;
+    status: string | null;
+    location: string | null;
+    incident_count: number;
+    persisted: boolean;
     properties: Record<string, unknown>;
     document_count: number;
     related_node_count: number;
   };
+  metadata: Record<string, AssetMetadataField>;
+  aliases: string[];
+  incidents: AssetIncident[];
   related_documents: MaintenanceDoc[];
   related_graph_nodes: RelatedGraphNode[];
   maintenance_history: MaintenanceHistoryEntry[];
