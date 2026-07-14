@@ -141,7 +141,7 @@ export default function HomePage() {
         <div
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12 relative overflow-hidden bg-[#FAFAF8] border-r border-[#E2E8F0]"
+          className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12 relative overflow-hidden bg-[#FAFAF8] border-r  border-none"
         >
           {/* Dense Cybernetic background network grid */}
           <div className="absolute inset-0 z-0 pointer-events-none">
