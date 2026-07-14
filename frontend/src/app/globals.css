@@ -266,3 +266,154 @@ body {
   box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.07);
   border-color: #c7d7f0;
 }
+
+/* ============================================================
+   BACKGROUND MESH GRADIENTS ANIMATIONS
+   ============================================================ */
+@keyframes rotate-mesh {
+  0% {
+    transform: rotate(0deg) translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) translate(40px, -40px) scale(1.08);
+  }
+  100% {
+    transform: rotate(360deg) translate(0px, 0px) scale(1);
+  }
+}
+.bg-mesh-circle-1 {
+  position: absolute;
+  width: 650px;
+  height: 650px;
+  background: radial-gradient(circle, #3B82F6 0%, transparent 70%);
+  filter: blur(90px);
+  opacity: 0.04;
+  animation: rotate-mesh 28s infinite alternate ease-in-out;
+  pointer-events: none;
+}
+.bg-mesh-circle-2 {
+  position: absolute;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, #6366F1 0%, transparent 70%);
+  filter: blur(90px);
+  opacity: 0.04;
+  animation: rotate-mesh 36s infinite alternate-reverse ease-in-out;
+  pointer-events: none;
+}
+
+/* ============================================================
+   LASER SCANNER EFFECT
+   ============================================================ */
+@keyframes laser-scan {
+  0% {
+    top: 0%;
+  }
+  50% {
+    top: 100%;
+  }
+  100% {
+    top: 0%;
+  }
+}
+.laser-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #16A34A 15%, #16A34A 85%, transparent);
+  box-shadow: 0 0 6px #16A34A, 0 0 10px #16A34A;
+  animation: laser-scan 3s infinite ease-in-out;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ============================================================
+   KNOWLEDGE GRAPH NODE PULSE
+   ============================================================ */
+@keyframes node-pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.2);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
+.node-pulse-active {
+  animation: node-pulse-glow 2s infinite ease-in-out;
+}
+
+/* ============================================================
+   CARD HOVER PHYSICS & INPUT FOCUS STATE OVERRIDES
+   ============================================================ */
+.actionable-card {
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.actionable-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 20px -8px rgba(37, 99, 235, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.04) !important;
+  border-color: rgba(37, 99, 235, 0.2) !important;
+}
+
+.custom-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.custom-input:focus {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important;
+}
+
+/* ============================================================
+   PROGRESS SWEEP FOR CAROUSEL
+   ============================================================ */
+@keyframes progress-sweep {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+/* ============================================================
+   RADAR GRID SWEEP
+   ============================================================ */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  105% { transform: rotate(360deg); }
+}
+.radar-grid {
+  background-image: radial-gradient(circle, rgba(37,99,235,0.015) 0%, transparent 80%),
+                    repeating-radial-gradient(circle, rgba(37,99,235,0.01) 0px, rgba(37,99,235,0.01) 30px, transparent 30px, transparent 60px);
+  animation: radar-sweep 50s linear infinite;
+  will-change: transform;
+}
+
+/* ============================================================
+   CYBER CARD HOVER GRID & SHIMMER CTA
+   ============================================================ */
+.cyber-card-grid {
+  background-image: radial-gradient(rgba(37, 99, 235, 0.04) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+@keyframes shimmer-sweep {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+.shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: skewX(-25deg);
+  animation: shimmer-sweep 5s infinite ease-in-out;
+  pointer-events: none;
+}

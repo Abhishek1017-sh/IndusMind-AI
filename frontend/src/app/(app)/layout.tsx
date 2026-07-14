@@ -16,6 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [assistantMessages, setAssistantMessages] = useState<Array<{ sender: "user" | "bot"; text: string }>>([
     { sender: "bot", text: "Hello! I am IndusMind AI, your factory operations copilot. Ask me anything about plant SOPs, failure analytics, or compliance status." }
@@ -98,17 +99,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ChatProvider>
       <PageTransitionBar />
-      <div className="flex min-h-screen bg-[#FAFAF8]">
-        <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <div className="flex min-h-screen bg-[#FAFAF8] relative overflow-hidden">
+        {/* Animated backdrop mesh circles */}
+        <div className="absolute top-[-150px] left-[-150px] bg-mesh-circle-1 z-0" />
+        <div className="absolute bottom-[-150px] right-[-150px] bg-mesh-circle-2 z-0" />
+
+        <Sidebar
+          mobileOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
         
-        <div className="flex-1 md:ml-64 flex flex-col min-h-screen overflow-x-hidden">
+        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"} flex flex-col min-h-screen overflow-x-hidden z-10`}>
           {/* White top navigation bar */}
           <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 bg-white border-b border-[#E2E8F0] shadow-sm">
             <div className="flex items-center gap-3">
               <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-[#64748B] hover:text-[#0F172A] p-1.5 cursor-pointer rounded-lg hover:bg-[#F1F5F9]" aria-label="Open menu">
                 <Menu className="w-5 h-5" />
               </button>
-              {/* Facility label removed */}
             </div>
 
             {/* Large centered AI Search bar */}
@@ -118,7 +127,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setPaletteOpen(true)}
                 readOnly
                 placeholder="Ask anything about your plant... (Ctrl + K)"
-                className="w-full pl-9 pr-20 py-1.5 text-xs text-[#0F172A] placeholder:text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg outline-none cursor-pointer hover:border-[#3B82F6] transition-all"
+                className="w-full pl-9 pr-20 py-1.5 text-xs text-[#0F172A] placeholder:text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg outline-none cursor-pointer hover:border-[#3B82F6] transition-all focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
               />
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-[#64748B] bg-white border border-[#E2E8F0] rounded">
                 <Command className="w-2 h-2" />K
@@ -178,58 +187,108 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Global Floating AI Assistant Drawer */}
-        <div className="fixed bottom-4 right-4 z-40">
-          {assistantOpen ? (
-            <div className="w-80 h-96 bg-white border border-[#E2E8F0] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-[#E2E8F0]">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
-                    <Brain className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <span className="text-xs font-bold text-[#0F172A]">Plant AI Assistant</span>
+        {/* Global Floating AI Assistant Drawer Backdrop */}
+        {assistantOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-[#0F172A]/20 backdrop-blur-[2px] transition-opacity duration-300"
+            onClick={() => setAssistantOpen(false)}
+          />
+        )}
+
+        {/* Global Floating AI Assistant Drawer Panel */}
+        <div
+          className={`fixed right-0 top-0 bottom-0 h-screen w-[380px] max-w-full bg-white shadow-2xl z-50 flex flex-col border-l border-[#E2E8F0] transition-transform duration-300 ease-in-out ${
+            assistantOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-[#E2E8F0]">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
+                <Brain className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-[#0F172A] block leading-tight">Plant AI Assistant</span>
+                <span className="text-[9px] text-green-600 font-extrabold tracking-wider uppercase flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Active RAG Connection
+                </span>
+              </div>
+            </div>
+            <button onClick={() => setAssistantOpen(false)} className="text-[#64748B] hover:text-[#0F172A] cursor-pointer bg-transparent border-0 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-[#F8FAFC]">
+            {assistantMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-sm ${
+                  msg.sender === "user"
+                    ? "bg-blue-600 text-white font-semibold rounded-tr-none"
+                    : "bg-white border border-[#E2E8F0] text-[#0F172A] font-medium rounded-tl-none"
+                }`}>
+                  {msg.text}
                 </div>
-                <button onClick={() => setAssistantOpen(false)} className="text-[#64748B] hover:text-[#0F172A] cursor-pointer bg-transparent border-0">
-                  <X className="w-4 h-4" />
+              </div>
+            ))}
+            <div ref={assistantEndRef} />
+          </div>
+
+          {/* Prompt chips and Input area */}
+          <div className="p-4 bg-white border-t border-[#E2E8F0]">
+            {/* Quick Prompt Chips */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {[
+                { label: "Run RCA", text: "Run a Root Cause Analysis on pump failure P-101." },
+                { label: "Check Compliance", text: "What is our current compliance status regarding OISD standards?" },
+                { label: "Maintenance SOP", text: "What is the maintenance SOP for compressor C-12?" },
+              ].map(chip => (
+                <button
+                  key={chip.label}
+                  onClick={() => setAssistantInput(chip.text)}
+                  className="px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-full text-[10px] font-bold text-slate-600 hover:text-blue-600 transition-all cursor-pointer"
+                >
+                  {chip.label}
                 </button>
-              </div>
+              ))}
+            </div>
 
-              {/* Messages */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#F8FAFC]">
-                {assistantMessages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] rounded-xl px-3 py-2.5 text-xs leading-relaxed ${
-                      msg.sender === "user" ? "bg-blue-600 text-white font-semibold" : "bg-white border border-[#E2E8F0] text-[#0F172A] font-medium"
-                    }`}>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-                <div ref={assistantEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="p-3 bg-white border-t border-[#E2E8F0] flex gap-2">
+            {/* Input bar */}
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                {/* RAG Pulser inside the input bar */}
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="RAG Connection Active" />
+                </div>
                 <input
                   value={assistantInput}
                   onChange={e => setAssistantInput(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAssistantSend()}
                   placeholder="Ask a quick plant question..."
-                  className="flex-1 px-3 py-1.5 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-lg outline-none focus:border-blue-500 bg-white"
+                  className="w-full pl-7 pr-3 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition-all"
                 />
-                <button onClick={handleAssistantSend} className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-750 transition-colors cursor-pointer border-0">
-                  <Send className="w-3.5 h-3.5" />
-                </button>
               </div>
+              <button onClick={handleAssistantSend} className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-750 transition-colors cursor-pointer border-0 shadow-sm">
+                <Send className="w-4 h-4" />
+              </button>
             </div>
-          ) : (
-            <button onClick={() => setAssistantOpen(true)}
-              className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-750 transition-all hover:scale-105 cursor-pointer border-0">
-              <MessageSquare className="w-5 h-5" />
-            </button>
-          )}
+          </div>
         </div>
+
+        {/* Floating trigger button when drawer is closed */}
+        {!assistantOpen && (
+          <button
+            onClick={() => setAssistantOpen(true)}
+            className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-blue-500 text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all cursor-pointer border-0 z-40 group"
+          >
+            <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+          </button>
+        )}
 
       </div>
     </ChatProvider>

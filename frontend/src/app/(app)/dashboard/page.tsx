@@ -20,7 +20,7 @@ interface StatCard {
 
 function StatTile({ label, value, icon: Icon, color, sub }: StatCard) {
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 hover:shadow-sm transition-all relative overflow-hidden flex-1">
+    <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 transition-all relative overflow-hidden flex-1 actionable-card">
       <div className="flex items-start justify-between mb-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
           style={{ background: `${color}10`, border: `1px solid ${color}20` }}>
@@ -122,7 +122,7 @@ export default function DashboardPage() {
         
         {/* QR Simulation Button */}
         <button onClick={() => setShowQrSim(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all bg-gradient-to-br from-blue-600 to-blue-500 hover:opacity-90 shadow-sm cursor-pointer">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all bg-gradient-to-br from-blue-600 to-blue-500 hover:opacity-90 shadow-sm cursor-pointer border-0">
           <QrCode className="w-4 h-4" /> Asset QR Scan
         </button>
       </div>
@@ -151,7 +151,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recentDocs.map(doc => (
-                <div key={doc.id} className="flex items-center justify-between p-3 border border-[#E2E8F0] rounded-xl bg-[#F8FAFC] hover:bg-[#F1F5F9]/50 transition-colors">
+                <div key={doc.id} className="flex items-center justify-between p-3 border border-[#E2E8F0] rounded-xl bg-[#F8FAFC] transition-all actionable-card">
                   <div className="flex items-center gap-3 min-w-0">
                     <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
                     <div className="min-w-0">
@@ -177,7 +177,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-2">
             {suggestedQueries.map(q => (
               <Link key={q} href={`/chat?q=${encodeURIComponent(q)}`}
-                className="flex items-center gap-3 px-3 py-3 border border-[#E2E8F0] hover:border-blue-300 rounded-xl text-xs text-[#64748B] hover:text-[#0F172A] bg-[#F8FAFC] hover:bg-[#F1F5F9]/50 transition-all font-bold group cursor-pointer">
+                className="flex items-center gap-3 px-3 py-3 border border-[#E2E8F0] rounded-xl text-xs text-[#64748B] hover:text-[#0F172A] bg-[#F8FAFC] transition-all font-bold group cursor-pointer actionable-card">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50 flex-shrink-0 group-hover:bg-blue-600 transition-colors" />
                 {q}
               </Link>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
 
       {/* Upload CTA */}
       <Link href="/documents"
-        className="flex items-center gap-4 p-5 rounded-2xl border border-[#E2E8F0] hover:border-blue-300 transition-all group bg-white cursor-pointer shadow-sm">
+        className="flex items-center gap-4 p-5 rounded-2xl border border-[#E2E8F0] transition-all group bg-white cursor-pointer shadow-sm actionable-card">
         <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-50 border border-blue-100">
           <Upload className="w-6 h-6 text-blue-600" />
         </div>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
       {/* QR Code Scan Simulator Modal */}
       {showQrSim && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-sm text-center shadow-lg">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 w-full max-w-sm text-center shadow-lg im-scale-in">
             <h2 className="text-lg font-bold text-[#0F172A] mb-1">Asset QR Scan Simulator</h2>
             <p className="text-xs text-[#64748B] mb-5">Align plant scanner tag or simulate quick database check.</p>
 

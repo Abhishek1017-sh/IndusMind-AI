@@ -113,12 +113,18 @@ function CustomNode({ data }: { data: { label: string; type?: string; subtitle?:
   const type = data.type ?? "Equipment";
   const meta = getMeta(type);
   const Icon = meta.icon;
+  const [hovered, setHovered] = useState(false);
+
+  const isInteractiveType = ["Document", "SOP", "Equipment", "Machine", "Facility", "Unit", "System"].includes(type);
+  const isPulsing = data.isSelected || isInteractiveType;
 
   return (
     <div
-      className={`w-[170px] h-[65px] px-3.5 py-2.5 bg-white border rounded-[14px] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between text-left select-none relative ${
-        data.isSelected ? "border-blue-500 bg-blue-50/40 shadow-[0_0_12px_rgba(37,99,235,0.15)] ring-1 ring-blue-500" : "border-[#E5E7EB]"
-      } ${data.isFaded ? "opacity-35" : "opacity-100"}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`w-[170px] h-[65px] px-3.5 py-2.5 bg-white border rounded-[14px] shadow-sm flex flex-col justify-between text-left select-none relative transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer ${
+        data.isSelected ? "border-blue-500 bg-blue-50/40 ring-1 ring-blue-500" : "border-[#E5E7EB]"
+      } ${data.isFaded ? "opacity-35" : "opacity-100"} ${isPulsing ? "node-pulse-active" : ""}`}
     >
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -139,6 +145,20 @@ function CustomNode({ data }: { data: { label: string; type?: string; subtitle?:
           </span>
         )}
       </div>
+
+      {/* Sleek micro-tooltip containing quick mock metadata */}
+      {hovered && (
+        <div className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 px-3 py-2 bg-slate-900/90 backdrop-blur-md text-white text-[9px] font-bold rounded-lg shadow-xl border border-slate-700 pointer-events-none whitespace-nowrap z-50 animate-fade-in flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${data.isSelected ? "bg-blue-400" : "bg-green-400"} animate-pulse`} />
+            <span className="text-slate-100">Status: {data.status || meta.status}</span>
+          </div>
+          <div className="text-[8.5px] text-slate-350 font-semibold">Category: {meta.label}</div>
+          {data.subtitle && (
+            <div className="text-[8.5px] text-slate-350 font-semibold">Relation: {data.subtitle}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

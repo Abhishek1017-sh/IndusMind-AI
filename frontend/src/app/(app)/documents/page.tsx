@@ -133,7 +133,7 @@ export default function DocumentsPage() {
           { label: "Queued / Processing", value: docs.filter(d => d.status === "PROCESSING" || d.status === "PENDING").length, color: "#F59E0B" },
           { label: "Failed Pipelines", value: docs.filter(d => d.status === "FAILED").length, color: "#DC2626" },
         ].map(s => (
-          <div key={s.label} className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm">
+          <div key={s.label} className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm transition-all actionable-card">
             <p className="text-2xl font-extrabold text-[#0F172A]" style={{ color: s.color }}>{s.value}</p>
             <p className="text-xs text-[#64748B] font-bold mt-0.5">{s.label}</p>
           </div>
@@ -151,22 +151,59 @@ export default function DocumentsPage() {
             onDragLeave={() => setDragging(false)}
             onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
             onClick={() => document.getElementById("fileInput")?.click()}
-            className="relative rounded-2xl p-8 text-center cursor-pointer border-2 border-dashed border-[#E2E8F0] hover:border-blue-600 bg-white hover:bg-slate-50/50 transition-all"
+            className="relative rounded-2xl p-8 text-center cursor-pointer border-2 border-dashed border-[#E2E8F0] hover:border-blue-600 bg-white hover:bg-slate-50/50 transition-all overflow-hidden"
           >
             <input id="fileInput" type="file" multiple className="hidden"
               accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.txt,.csv"
               onChange={e => handleFiles(e.target.files)} />
             
+            {/* Green horizontal scanner scanline */}
+            {uploadStage >= 0 && (
+              <div className="laser-scan-line" />
+            )}
+
             <Upload className="w-10 h-10 mx-auto mb-3 text-blue-600" />
             <p className="text-xs font-bold text-[#0F172A]">Drop factory records here or <span className="text-blue-600 hover:underline">browse files</span></p>
             <p className="text-[10px] text-[#64748B] font-semibold mt-1">Supports PDF, DOCX, P&amp;ID schematics, CAD prints, Excel databases — Max 50MB</p>
-
+            
             {/* Simulated pipeline steps badge */}
-            <div className="mt-4 flex flex-wrap justify-center gap-2 text-[9px] font-bold text-[#64748B]">
-              <span className="px-2 py-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded">1. OCR Processing</span>
-              <span className="px-2 py-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded">2. Entity Extraction</span>
-              <span className="px-2 py-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded">3. Relation Detection</span>
-              <span className="px-2 py-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded">4. Graph Embeddings</span>
+            <div className="mt-4 flex flex-wrap justify-center gap-2 text-[9px] font-bold">
+              <span className={`px-2.5 py-0.5 border rounded transition-all duration-300 ${
+                uploadStage === 1
+                  ? "bg-green-50 border-green-500 text-green-600 scale-105 animate-pulse shadow-sm"
+                  : uploadStage > 1
+                  ? "bg-green-50/50 border-green-200 text-green-600 font-extrabold"
+                  : "bg-[#F1F5F9] border-[#E2E8F0] text-[#64748B]"
+              }`}>
+                1. OCR Processing
+              </span>
+              <span className={`px-2.5 py-0.5 border rounded transition-all duration-300 ${
+                uploadStage === 2
+                  ? "bg-green-50 border-green-500 text-green-600 scale-105 animate-pulse shadow-sm"
+                  : uploadStage > 2
+                  ? "bg-green-50/50 border-green-200 text-green-600 font-extrabold"
+                  : "bg-[#F1F5F9] border-[#E2E8F0] text-[#64748B]"
+              }`}>
+                2. Entity Extraction
+              </span>
+              <span className={`px-2.5 py-0.5 border rounded transition-all duration-300 ${
+                uploadStage === 3
+                  ? "bg-green-50 border-green-500 text-green-600 scale-105 animate-pulse shadow-sm"
+                  : uploadStage > 3
+                  ? "bg-green-50/50 border-green-200 text-green-600 font-extrabold"
+                  : "bg-[#F1F5F9] border-[#E2E8F0] text-[#64748B]"
+              }`}>
+                3. Relation Detection
+              </span>
+              <span className={`px-2.5 py-0.5 border rounded transition-all duration-300 ${
+                (uploadStage >= 4 && uploadStage <= 5)
+                  ? "bg-green-50 border-green-500 text-green-600 scale-105 animate-pulse shadow-sm"
+                  : uploadStage > 5
+                  ? "bg-green-50/50 border-green-200 text-green-600 font-extrabold"
+                  : "bg-[#F1F5F9] border-[#E2E8F0] text-[#64748B]"
+              }`}>
+                4. Graph Embeddings
+              </span>
             </div>
 
             {/* Uploading progress indicators */}
@@ -181,7 +218,7 @@ export default function DocumentsPage() {
             <div className="flex items-center gap-3 px-4 py-3 border border-red-200 bg-red-50 rounded-xl text-xs text-red-700 font-semibold">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1">{error}</span>
-              <button onClick={() => setError("")} className="cursor-pointer"><X className="w-4 h-4" /></button>
+              <button onClick={() => setError("")} className="cursor-pointer bg-transparent border-0"><X className="w-4 h-4" /></button>
             </div>
           )}
 
@@ -189,7 +226,7 @@ export default function DocumentsPage() {
           <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0]">
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#0F172A]">Uploaded Files</h2>
-              <button onClick={() => fetchDocs(true)} className="text-[#64748B] hover:text-[#0F172A] cursor-pointer">
+              <button onClick={() => fetchDocs(true)} className="text-[#64748B] hover:text-[#0F172A] cursor-pointer bg-transparent border-0">
                 <RefreshCw className="w-4 h-4" />
               </button>
             </div>
@@ -207,12 +244,18 @@ export default function DocumentsPage() {
                 {docs.map(doc => {
                   const ext = doc.file_type.toLowerCase();
                   const color = TYPE_COLORS[ext] ?? "#64748B";
+                  const isProcessing = doc.status === "PROCESSING" || doc.status === "PENDING";
                   return (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-[#F8FAFC] transition-colors group"
+                      className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-[#F8FAFC] transition-colors group relative overflow-hidden"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      {/* Laser scanner active line overlay for processing files */}
+                      {isProcessing && (
+                        <div className="laser-scan-line" />
+                      )}
+
+                      <div className="flex items-center gap-3 min-w-0 z-10">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ background: `${color}10`, border: `1.5px solid ${color}20` }}>
                           <FileText className="w-4 h-4" style={{ color }} />
@@ -225,11 +268,11 @@ export default function DocumentsPage() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-shrink-0 z-10">
                         <StatusBadge status={doc.status} />
                         <button
                           onClick={(e) => { e.stopPropagation(); setDocToDelete(doc); }}
-                          className="opacity-0 group-hover:opacity-100 text-[#64748B] hover:text-red-600 transition-opacity p-1 cursor-pointer"
+                          className="opacity-0 group-hover:opacity-100 text-[#64748B] hover:text-red-600 transition-opacity p-1 cursor-pointer bg-transparent border-0"
                           title="Delete document"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -244,7 +287,7 @@ export default function DocumentsPage() {
         </div>
 
         {/* Right Col: Quick AI Query Shortcuts */}
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm space-y-4 transition-all actionable-card">
           <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-blue-600" /> Quick AI Query Shortcuts
@@ -264,7 +307,7 @@ export default function DocumentsPage() {
               <a
                 key={q}
                 href={`/chat?q=${encodeURIComponent(q)}`}
-                className="flex items-center gap-3 px-3.5 py-3 border border-[#E2E8F0] hover:border-blue-300 rounded-xl text-xs text-[#64748B] hover:text-[#0F172A] bg-[#FAFAF8] hover:bg-[#F1F5F9] transition-all font-semibold group cursor-pointer"
+                className="flex items-center gap-3 px-3.5 py-3 border border-[#E2E8F0] hover:border-blue-300 rounded-xl text-xs text-[#64748B] hover:text-[#0F172A] bg-[#FAFAF8] hover:bg-[#F1F5F9] transition-all font-semibold group cursor-pointer focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 outline-none"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0 group-hover:bg-blue-600 transition-colors" />
                 {q}
@@ -290,19 +333,20 @@ export default function DocumentsPage() {
           />
 
           {/* Modal card */}
-          <div className="relative bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] w-full max-w-md p-7 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-red-100 w-full max-w-md p-7 animate-in fade-in zoom-in-95 duration-200">
             {/* Close button */}
             <button
               onClick={() => setDocToDelete(null)}
               disabled={deleting}
-              className="absolute top-4 right-4 text-[#94A3B8] hover:text-[#0F172A] transition-colors cursor-pointer disabled:opacity-50"
+              className="absolute top-4 right-4 text-[#94A3B8] hover:text-[#0F172A] transition-colors cursor-pointer disabled:opacity-50 bg-transparent border-0"
             >
               <X className="w-4 h-4" />
             </button>
 
-            {/* Icon */}
-            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mb-5 mx-auto">
-              <ShieldAlert className="w-6 h-6 text-red-600" />
+            {/* Icon (pulsing red warning badge) */}
+            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mb-5 mx-auto relative">
+              <span className="absolute inset-0 rounded-full bg-red-500/10 animate-ping opacity-75" />
+              <ShieldAlert className="w-6 h-6 text-red-600 relative z-10" />
             </div>
 
             {/* Heading */}
@@ -315,16 +359,16 @@ export default function DocumentsPage() {
               along with its vector index and all extracted knowledge graph nodes. This action <span className="text-red-600">cannot be undone</span>.
             </p>
 
-            {/* Metadata pill */}
+            {/* Metadata chips */}
             <div className="flex items-center justify-center gap-3 mb-6">
-              <span className="px-2.5 py-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg text-[10px] font-bold text-[#64748B] uppercase">
-                {docToDelete.file_type}
+              <span className="px-2.5 py-1 bg-red-50 border border-red-100 rounded-lg text-[10px] font-extrabold text-red-600 uppercase tracking-wider">
+                {docToDelete.file_type.toUpperCase()}
               </span>
-              <span className="px-2.5 py-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg text-[10px] font-bold text-[#64748B]">
+              <span className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
                 {(docToDelete.file_size / 1024).toFixed(0)} KB
               </span>
-              <span className="px-2.5 py-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg text-[10px] font-bold text-[#64748B]">
-                {docToDelete.status}
+              <span className="px-2.5 py-1 bg-green-50 border border-green-100 rounded-lg text-[10px] font-extrabold text-green-600 tracking-wider">
+                {docToDelete.status.toUpperCase()}
               </span>
             </div>
 
@@ -340,7 +384,7 @@ export default function DocumentsPage() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2 border-0"
               >
                 {deleting ? (
                   <>
