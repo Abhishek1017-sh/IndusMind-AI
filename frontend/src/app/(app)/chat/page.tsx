@@ -388,7 +388,7 @@ function ChatInner() {
 
         {/* Messages */}
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className={cn("mx-auto w-full max-w-3xl px-5 py-6", isEmpty && "flex min-h-full flex-col justify-center")}>
+          <div className={cn("mx-auto w-full max-w-3xl lg:max-w-5xl xl:max-w-6xl px-5 py-6", isEmpty && "flex min-h-full flex-col justify-center")}>
             {isEmpty ? (
               <WelcomeCard suggestions={suggestions} onPick={handleSend} />
             ) : (
@@ -404,7 +404,7 @@ function ChatInner() {
 
         {/* Composer */}
         <div className="shrink-0 border-t border-line bg-surface px-5 py-3">
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
+          <div className="mx-auto flex max-w-3xl lg:max-w-5xl xl:max-w-6xl items-end gap-2">
             <div className="flex flex-1 items-end gap-2 rounded-ui-lg border border-line bg-canvas px-3 py-2 transition-colors focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
               <textarea
                 rows={1}
@@ -425,7 +425,7 @@ function ChatInner() {
               <Send className="h-4 w-4" />
             </button>
           </div>
-          <p className="mx-auto mt-1.5 max-w-3xl text-center text-[10px] text-ink-tertiary">
+          <p className="mx-auto mt-1.5 max-w-3xl lg:max-w-5xl xl:max-w-6xl text-center text-[10px] text-ink-tertiary">
             Answers are grounded in your documents with citations. Verify critical actions with a specialist.
           </p>
         </div>
