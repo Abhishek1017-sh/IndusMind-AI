@@ -42,25 +42,15 @@ def _build_engine():
         logger.info(f"Connected to PostgreSQL successfully: {_redact(url)}")
         return engine
     except Exception as e:
-        if settings.ALLOW_SQLITE_FALLBACK:
-            logger.warning(
-                "Could not connect to PostgreSQL (%s): %s. ALLOW_SQLITE_FALLBACK is enabled, "
-                "so falling back to a LOCAL SQLite database. WARNING: data written now will NOT "
-                "be in PostgreSQL.", _redact(url), e
-            )
-            import os
-            sqlite_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                "industrial_brain.db"
-            )
-            return create_engine(f"sqlite:///{sqlite_path}", connect_args={"check_same_thread": False})
-
+        # No SQLite fallback: PostgreSQL is the single source of truth. If it is
+        # unreachable the app refuses to start rather than silently writing to a
+        # divergent local database. (The test suite passes an explicit sqlite://
+        # DATABASE_URL and takes the branch above.)
         raise RuntimeError(
             f"Could not connect to the configured PostgreSQL database ({_redact(url)}): {e}\n"
-            "PostgreSQL is the single source of truth for this application, so it refuses to start on a "
-            "divergent local database. Start PostgreSQL (e.g. your Docker DB) and confirm DATABASE_URL "
+            "PostgreSQL is required. Start PostgreSQL (e.g. your Docker DB) and confirm DATABASE_URL "
             "points at the correct database, then retry. For intentional offline local development set "
-            "DATABASE_URL to an explicit sqlite:/// URL, or set ALLOW_SQLITE_FALLBACK=true."
+            "DATABASE_URL to an explicit sqlite:/// URL."
         ) from e
 
 

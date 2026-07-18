@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, Integer, Text
+from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, Integer, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -30,6 +30,11 @@ class Document(Base):
     # Compliance / Reports dashboards. Nullable so pre-existing rows and
     # still-processing uploads are valid.
     category = Column(String, nullable=True)
+    # Document-driven module routing (see app.services.module_router):
+    # {"document_type", "modules": {maintenance, compliance, knowledge_graph,
+    # reports, chat}, "regulations": [...]}. The document decides which modules
+    # it activates — not the UI. Nullable for pre-existing / processing rows.
+    intelligence = Column(JSON, nullable=True)
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

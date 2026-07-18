@@ -151,7 +151,51 @@ def generate_pdf_report(
             story.append(Paragraph("Required Corrective Actions", h2_style))
             for action in actions:
                 story.append(Paragraph(f"• {action}", bullet_style))
-                
+
+        # ── Rich audit sections (present only for the one-click audit report) ──
+        regs = data.get("applicable_regulations", [])
+        if regs:
+            story.append(Paragraph("Applicable Regulations", h2_style))
+            for r in regs:
+                story.append(Paragraph(
+                    f"• <b>{r.get('name', r.get('code',''))}</b> ({r.get('domain','')}) "
+                    f"— {int((r.get('confidence') or 0)*100)}% confidence", bullet_style))
+
+        findings = data.get("compliance_findings", [])
+        if findings:
+            story.append(Paragraph("Cross-Document Findings", h2_style))
+            for f in findings:
+                sev = f.get("severity", "")
+                sev_color = {"Critical": "#dc2626", "High": "#ea580c", "Medium": "#ca8a04"}.get(sev, "#16a34a")
+                story.append(Paragraph(
+                    f"<b><font color='{sev_color}'>[{sev}]</font> {f.get('title','')}</b>"
+                    + ("  (cross-document)" if f.get("cross_document") else ""), body_style))
+                story.append(Paragraph(f.get("description", ""), bullet_style))
+                for e in f.get("evidence", []):
+                    role = f"{e.get('role','')}: " if e.get("role") else ""
+                    story.append(Paragraph(
+                        f"&nbsp;&nbsp;— {role}<i>{e.get('source_document','')}</i>: “{e.get('snippet','')}”",
+                        bullet_style))
+                if f.get("recommendation"):
+                    story.append(Paragraph(f"&nbsp;&nbsp;→ <b>Recommendation:</b> {f['recommendation']}", bullet_style))
+            story.append(Spacer(1, 8))
+
+        timeline = data.get("compliance_timeline", [])
+        if timeline:
+            story.append(Paragraph("Compliance Timeline", h2_style))
+            for ev in timeline:
+                status_color = "#dc2626" if ev.get("status") == "overdue" else "#16a34a"
+                story.append(Paragraph(
+                    f"• <b>{ev.get('date','')}</b> — {ev.get('event','')} "
+                    f"<font color='{status_color}'>[{ev.get('status','').upper()}]</font> "
+                    f"({ev.get('source_document','')})", bullet_style))
+
+        missing = data.get("missing_documents", [])
+        if missing:
+            story.append(Paragraph("Missing Document Types", h2_style))
+            story.append(Paragraph("The following were not found and would strengthen the audit: "
+                                   + ", ".join(missing) + ".", body_style))
+
     elif report_type.upper() == "RCA":
         story.append(Paragraph("Equipment details", h2_style))
         story.append(Paragraph(f"<b>Equipment ID:</b> {data.get('equipment_id', 'N/A')}", body_style))

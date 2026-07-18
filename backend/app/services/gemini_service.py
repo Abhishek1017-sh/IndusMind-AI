@@ -8,16 +8,26 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-def format_chunks_as_context(chunks: List[Dict[str, Any]]) -> str:
+# Retrieval returns a Top-10 reranked pool; only the best few are actually sent
+# to the LLM. Fewer, higher-precision chunks give a sharper, better-cited answer
+# than stuffing the prompt with marginal matches.
+MAX_CONTEXT_CHUNKS = 5
+
+
+def format_chunks_as_context(chunks: List[Dict[str, Any]], max_chunks: int = MAX_CONTEXT_CHUNKS) -> str:
     """
-    Formats retrieved FAISS chunks into a `[Source: filename]\\nContent: ...` block,
-    shared by every agent that builds a Gemini prompt from retrieved context.
+    Formats the best retrieved chunks into a
+    `[Source: filename, Chunk N]\\nContent: ...` block, shared by every agent
+    that builds a Gemini prompt. Capped to the top `max_chunks` (the reranked
+    best) so only the strongest evidence reaches the model.
     """
     context_str = ""
-    for chunk in chunks:
+    for chunk in chunks[:max_chunks]:
         meta = chunk.get("metadata", {})
         filename = meta.get("filename", "Unknown Document")
-        context_str += f"[Source: {filename}]\nContent: {chunk.get('page_content', '')}\n\n"
+        chunk_idx = meta.get("chunk_index")
+        source = f"{filename}, Chunk {chunk_idx}" if chunk_idx is not None else filename
+        context_str += f"[Source: {source}]\nContent: {chunk.get('page_content', '')}\n\n"
     return context_str
 
 
@@ -94,7 +104,15 @@ def extractive_answer(query: str, chunks: List[Dict[str, Any]], max_sentences: i
     if not chunks:
         return not_found_message(query), []
 
-    query_words = _content_words(query)
+    # Alias-expand the query terms so an offline extractive answer matches the
+    # same synonyms the retriever used (e.g. query "R&D" scores against a
+    # sentence that says "Research and Development") — otherwise retrieval would
+    # find the chunk but this scorer would wrongly reject it as unrelated.
+    from app.services.query_normalizer import expand_query
+    expanded = expand_query(query)
+    query_words = _content_words(query) | {
+        (w[:_PREFIX_LEN] if len(w) > _PREFIX_LEN else w) for w in expanded.lexical_terms
+    }
     candidates = []  # (score, sentence, filename, chunk_index)
     for chunk in chunks:
         meta = chunk.get("metadata", {})
@@ -243,11 +261,40 @@ CRITICAL RULES:
 
             answer = response.text.strip()
             citations = self._parse_citations(answer, vector_chunks)
-            logger.info("Gemini answered query using %d retrieved chunk(s), %d citation(s) parsed.", len(vector_chunks), len(citations))
+            # If the model answered but didn't emit parseable inline citations,
+            # still surface the evidence it was grounded in (the best retrieved
+            # chunks) — an answer should never appear source-less in the UI.
+            if not citations and answer.strip() != not_found_message(query).strip():
+                citations = self._top_chunk_citations(vector_chunks)
+            logger.info("Gemini answered query using %d retrieved chunk(s), %d citation(s).", len(vector_chunks), len(citations))
             return answer, citations
         except Exception as e:
             logger.error(f"Gemini query failed: {e}. Falling back to extractive summary.")
             return _fallback_answer(query, vector_chunks, graph_triples)
+
+    def _top_chunk_citations(self, chunks: List[Dict[str, Any]], limit: int = 3) -> List[Dict[str, Any]]:
+        """
+        Fallback citations built from the top reranked chunks, used when the
+        model's prose didn't include parseable inline `[Source]` brackets — so
+        the answer is still traceable to specific documents.
+        """
+        citations = []
+        seen = set()
+        for chunk in chunks[:MAX_CONTEXT_CHUNKS]:
+            meta = chunk.get("metadata", {})
+            filename = meta.get("filename", "Unknown Document")
+            if filename in seen:
+                continue
+            seen.add(filename)
+            content = (chunk.get("page_content") or "").strip()
+            citations.append({
+                "document_name": filename,
+                "page_number": meta.get("chunk_index"),
+                "text": content[:200] + ("..." if len(content) > 200 else ""),
+            })
+            if len(citations) >= limit:
+                break
+        return citations
 
     def _parse_citations(self, text: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

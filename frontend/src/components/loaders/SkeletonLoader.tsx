@@ -136,7 +136,7 @@ export function DocumentPipelineLoader({ activeStage, filename }: PipelineLoader
         <div
           style={{
             width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-            background: "linear-gradient(135deg,#2563EB,#3B82F6)",
+            background: "linear-gradient(135deg,#4F46E5,#6366F1)",
             display: "flex", alignItems: "center", justifyContent: "center",
             animation: "im-pulse-glow 2s ease-in-out infinite",
           }}
@@ -149,7 +149,7 @@ export function DocumentPipelineLoader({ activeStage, filename }: PipelineLoader
           <p className="text-xs font-extrabold text-[#0F172A]">Processing Document</p>
           {filename && <p className="text-[10px] text-[#64748B] font-semibold truncate max-w-xs">{filename}</p>}
         </div>
-        <span className="ml-auto text-xs font-bold text-[#2563EB]">{progress}%</span>
+        <span className="ml-auto text-xs font-bold text-[#4F46E5]">{progress}%</span>
       </div>
 
       {/* Progress bar */}
@@ -158,7 +158,7 @@ export function DocumentPipelineLoader({ activeStage, filename }: PipelineLoader
           style={{
             height: "100%",
             width: `${progress}%`,
-            background: "linear-gradient(90deg,#2563EB,#60A5FA)",
+            background: "linear-gradient(90deg,#4F46E5,#818CF8)",
             borderRadius: 99,
             transition: "width 0.5s ease",
           }}
@@ -186,7 +186,7 @@ export function DocumentPipelineLoader({ activeStage, filename }: PipelineLoader
                 <div
                   style={{
                     width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                    border: "2px solid #2563EB", borderTopColor: "transparent",
+                    border: "2px solid #4F46E5", borderTopColor: "transparent",
                     animation: "im-spin 0.7s linear infinite",
                   }}
                 />
@@ -195,7 +195,7 @@ export function DocumentPipelineLoader({ activeStage, filename }: PipelineLoader
               )}
               <span
                 className="text-[11px] font-semibold"
-                style={{ color: active ? "#2563EB" : done ? "#16A34A" : "#94A3B8" }}
+                style={{ color: active ? "#4F46E5" : done ? "#16A34A" : "#94A3B8" }}
               >
                 {stage}
               </span>
@@ -206,7 +206,7 @@ export function DocumentPipelineLoader({ activeStage, filename }: PipelineLoader
                       key={d}
                       style={{
                         width: 3, height: 3, borderRadius: "50%",
-                        background: "#2563EB", display: "inline-block",
+                        background: "#4F46E5", display: "inline-block",
                         animation: `im-dot-bounce 1s ease-in-out ${d * 0.15}s infinite`,
                       }}
                     />
@@ -230,7 +230,7 @@ export function AuthGuardLoader() {
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.35 }}>
         <defs>
           <pattern id="ag-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(37,99,235,0.07)" strokeWidth="1" />
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(79, 70, 229,0.07)" strokeWidth="1" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#ag-grid)" />
@@ -240,7 +240,7 @@ export function AuthGuardLoader() {
           className="im-pulse-glow"
           style={{
             width: 52, height: 52, borderRadius: 16, flexShrink: 0,
-            background: "linear-gradient(135deg,#2563EB,#3B82F6)",
+            background: "linear-gradient(135deg,#4F46E5,#6366F1)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
@@ -258,7 +258,7 @@ export function AuthGuardLoader() {
               key={i}
               style={{
                 width: 6, height: 6, borderRadius: "50%",
-                background: "#2563EB", display: "inline-block",
+                background: "#4F46E5", display: "inline-block",
                 animation: `im-dot-bounce 1.1s ease-in-out ${i * 0.18}s infinite`,
               }}
             />

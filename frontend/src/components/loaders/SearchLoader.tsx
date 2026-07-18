@@ -34,8 +34,8 @@ export default function SearchLoader({ onComplete }: { onComplete?: () => void }
 
   return (
     <div className="flex flex-col items-center justify-center p-6 space-y-4">
-      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center animate-pulse">
-        <Search className="w-5 h-5 text-blue-600 animate-spin" style={{ animationDuration: "1.5s" }} />
+      <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center animate-pulse">
+        <Search className="w-5 h-5 text-indigo-600 animate-spin" style={{ animationDuration: "1.5s" }} />
       </div>
       <div className="space-y-1.5 w-60 text-center">
         {STEPS.map((step, i) => {
@@ -55,11 +55,11 @@ export default function SearchLoader({ onComplete }: { onComplete?: () => void }
               {done ? (
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] flex-shrink-0" />
               ) : active ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping flex-shrink-0" />
               ) : null}
               <span
                 className="text-[10px] font-bold"
-                style={{ color: active ? "#2563EB" : done ? "#16A34A" : "#64748B" }}
+                style={{ color: active ? "#4F46E5" : done ? "#16A34A" : "#64748B" }}
               >
                 {step}
               </span>

@@ -97,6 +97,29 @@ def list_documents(
     return query.order_by(Document.created_at.desc()).all()
 
 
+@router.get("/module-readiness")
+def module_readiness(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Document-driven module routing: the readiness of each module (Maintenance,
+    Compliance, Knowledge Graph, Reports, AI Chat) for this user's uploaded
+    corpus — score, whether it's active, the evidence behind it, a plain reason,
+    and a hint for what to upload to enable it. The documents decide which
+    modules light up, not the UI.
+    """
+    from app.services import module_router
+    q = db.query(Document)
+    if current_user.role != UserRole.ADMIN:
+        q = q.filter(Document.uploaded_by == current_user.id)
+    infos = [d.intelligence for d in q.all() if d.intelligence]
+    return {
+        "has_documents": bool(infos),
+        "modules": module_router.compute_readiness(infos),
+    }
+
+
 def _get_owned_document_or_404(db: Session, document_id: uuid.UUID, current_user: User) -> Document:
     """
     Fetches a document, enforcing that only its uploader or an ADMIN may

@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 from app.services.asset_taxonomy import (
     ASSET_TAXONOMY, NEVER_ASSET_NODE_TYPES,
     BUSINESS_EXCLUSION_TERMS, MAINTAINABLE_GROUPS, confidence_band,
-    GROUP_EVENT, GROUP_PARTY,
+    GROUP_EVENT, GROUP_PARTY, looks_like_organization,
 )
 
 _WS = re.compile(r"\s+")
@@ -137,6 +137,14 @@ def classify_entity(
                      f"name contains a {spec.asset_type} keyword")
 
     if best is None:
+        return None
+
+    # Organization guard: a company-named entity ("Apex Global Solutions",
+    # "LogiTech Systems") is a business party, not a maintenance asset — unless
+    # it ALSO carries a strong physical/facility signal (e.g. "Global
+    # Processing Plant"). This keeps customers/competitors/suppliers out of the
+    # Maintenance module even if the extractor mis-typed them.
+    if looks_like_organization(text) and best.confidence < _CONF_STRONG:
         return None
 
     # Cross-document corroboration nudge (+0.03 per extra document, capped).

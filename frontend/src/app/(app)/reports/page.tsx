@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listReports, generateReport, getReportDownloadUrl, type ReportRecord } from "@/lib/api";
+import { listReports, generateReport, downloadReportFile, type ReportRecord } from "@/lib/api";
 import { BarChart3, Plus, Download, Loader2, FileText, X } from "lucide-react";
 
 const REPORT_TYPES = [
   { value: "RCA",         label: "Root Cause Analysis",    color: "#DC2626" },
-  { value: "COMPLIANCE",  label: "Compliance Audit",       color: "#2563EB" },
+  { value: "COMPLIANCE",  label: "Compliance Audit",       color: "#4F46E5" },
   { value: "MAINTENANCE", label: "Maintenance Report",     color: "#16A34A" },
   { value: "INSPECTION",  label: "Inspection Summary",     color: "#F59E0B" },
   { value: "EXECUTIVE",   label: "Executive Summary",      color: "#7C3AED" },
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-  RCA: "#DC2626", COMPLIANCE: "#2563EB", MAINTENANCE: "#16A34A", INSPECTION: "#F59E0B", EXECUTIVE: "#7C3AED",
+  RCA: "#DC2626", COMPLIANCE: "#4F46E5", MAINTENANCE: "#16A34A", INSPECTION: "#F59E0B", EXECUTIVE: "#7C3AED",
 };
 
 export default function ReportsPage() {
@@ -79,12 +79,12 @@ export default function ReportsPage() {
   }));
 
   return (
-    <div className="p-6 md:p-8 space-y-6 bg-[#FAFAF8]">
+    <div className="p-6 md:p-8 space-y-6 bg-[#F4F6FB]">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-indigo-600 to-indigo-500">
               <BarChart3 className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">Reports &amp; Analytics</h1>
@@ -94,7 +94,7 @@ export default function ReportsPage() {
           </p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors">
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors">
           <Plus className="w-4 h-4" /> Generate Report
         </button>
       </div>
@@ -144,8 +144,8 @@ export default function ReportsPage() {
 
             {/* Main Illustration */}
             <div className="relative z-10 space-y-3">
-              <div className="w-12 h-12 mx-auto bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center shadow-sm">
-                <FileText className="w-6 h-6 text-blue-500" />
+              <div className="w-12 h-12 mx-auto bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center shadow-sm">
+                <FileText className="w-6 h-6 text-indigo-500" />
               </div>
               <div>
                 <p className="text-xs font-bold text-[#64748B]">No reports generated yet.</p>
@@ -179,10 +179,11 @@ export default function ReportsPage() {
                       {r.report_type}
                     </span>
                     {r.id && (
-                      <a href={getReportDownloadUrl(r.id)} target="_blank" rel="noopener noreferrer"
-                        className="text-[#64748B] hover:text-[#0F172A] p-1.5 border border-[#E2E8F0] hover:bg-[#F1F5F9] rounded-lg transition-colors cursor-pointer">
+                      <button onClick={() => downloadReportFile(r.id, `${r.title || "report"}.pdf`).catch(console.error)}
+                        title="Download PDF"
+                        className="text-[#64748B] hover:text-[#0F172A] p-1.5 border border-[#E2E8F0] hover:bg-[#F1F5F9] rounded-lg transition-colors cursor-pointer bg-transparent">
                         <Download className="w-3.5 h-3.5" />
-                      </a>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -199,17 +200,17 @@ export default function ReportsPage() {
             {generationStep > 0 ? (
               <div className="py-8 flex flex-col items-center justify-center space-y-4 animate-fade-in">
                 <div className="relative w-16 h-16 flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-full border-4 border-t-blue-600 border-r-blue-600/30 border-b-blue-600/10 border-l-blue-600/30 animate-spin" />
-                  <FileText className="w-6 h-6 text-blue-600 animate-pulse" />
+                  <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 border-r-indigo-600/30 border-b-indigo-600/10 border-l-indigo-600/30 animate-spin" />
+                  <FileText className="w-6 h-6 text-indigo-600 animate-pulse" />
                 </div>
                 <div className="text-center space-y-1.5">
                   <p className="text-sm font-extrabold text-[#0F172A] tracking-tight">{stepText}</p>
                   <p className="text-[10px] text-[#64748B] font-semibold">Step {generationStep} of 3</p>
                 </div>
                 <div className="flex gap-1.5 justify-center">
-                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${generationStep >= 1 ? "bg-blue-600 scale-110" : "bg-slate-200"}`} />
-                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${generationStep >= 2 ? "bg-blue-600 scale-110" : "bg-slate-200"}`} />
-                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${generationStep >= 3 ? "bg-blue-600 scale-110" : "bg-slate-200"}`} />
+                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${generationStep >= 1 ? "bg-indigo-600 scale-110" : "bg-slate-200"}`} />
+                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${generationStep >= 2 ? "bg-indigo-600 scale-110" : "bg-slate-200"}`} />
+                  <div className={`w-2 h-2 rounded-full transition-all duration-300 ${generationStep >= 3 ? "bg-indigo-600 scale-110" : "bg-slate-200"}`} />
                 </div>
               </div>
             ) : (
@@ -226,7 +227,7 @@ export default function ReportsPage() {
                     <label className="block text-xs font-bold text-[#64748B] mb-1.5">Report Title</label>
                     <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
                       placeholder="e.g. Failure Investigation – Compressor C-12"
-                      className="w-full px-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition-all custom-input" />
+                      className="w-full px-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 bg-white transition-all custom-input" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-[#64748B] mb-1.5">Select Report Type</label>
@@ -243,7 +244,7 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <button onClick={handleGenerate} disabled={!newTitle.trim() || generating}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs font-bold disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     Generate PDF Report →
                   </button>

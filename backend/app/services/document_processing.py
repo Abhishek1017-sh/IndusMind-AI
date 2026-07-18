@@ -124,6 +124,16 @@ def process_document_task(document_id: str, session_id: str) -> None:
             logger.error(traceback.format_exc())
             db.rollback()
 
+        # Step 5.6: Document-driven module routing — decide which modules this
+        # document activates (Maintenance/Compliance/KnowledgeGraph/Reports/Chat)
+        # from its type, entities and referenced regulations. Non-blocking.
+        try:
+            _compute_document_intelligence(db, document, text_content)
+            logger.info(f"Module routing computed: {(document.intelligence or {}).get('modules')}")
+        except Exception as intel_err:
+            logger.error(f"Module routing computation failed (non-blocking): {intel_err}")
+            db.rollback()
+
         # Step 6: Mark document as COMPLETED
         document.status = DocumentStatus.COMPLETED
         db.commit()
@@ -145,6 +155,39 @@ def process_document_task(document_id: str, session_id: str) -> None:
 
     finally:
         db.close()
+
+
+def _compute_document_intelligence(db, document, text_content: str) -> None:
+    """
+    Computes and stores this document's module-routing intelligence: its
+    detected regulations plus a confidence score per module, derived from the
+    document type and the entity types extracted into the graph. Grounded — the
+    document decides which modules it belongs to.
+    """
+    from app.services.graph_db import graph_db
+    from app.services.regulation_detector import detect_regulations
+    from app.services.compliance_engine import extract_document_compliance
+    from app.services import module_router
+
+    user_id = str(document.uploaded_by)
+    doc_id = str(document.id)
+
+    regulations = detect_regulations(text_content)
+    graph = graph_db.get_owned_graph(user_id)
+    entity_types = [
+        n.get("type") for n in graph.get("nodes", [])
+        if doc_id in [str(x) for x in (n.get("data", {}).get("document_ids") or [])]
+    ]
+    ref_date = document.created_at.date() if document.created_at else None
+    document.intelligence = {
+        "document_type": document.category,
+        "modules": module_router.score_document(document.category, entity_types, regulations),
+        "regulations": regulations,
+        # Per-document compliance requirements/observations for cross-document
+        # validation (see compliance_engine).
+        "compliance": extract_document_compliance(text_content, document.filename, ref_date),
+    }
+    db.commit()
 
 
 def _sync_asset_store(db, document, text_content: str) -> None:

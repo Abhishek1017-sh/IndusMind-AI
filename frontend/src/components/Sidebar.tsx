@@ -59,13 +59,13 @@ export default function Sidebar({ mobileOpen, onClose, collapsed = false, onTogg
         {/* Logo */}
         <div className={`py-6 flex items-center transition-all duration-300 ${collapsed ? "px-0 justify-center" : "px-5"} gap-3`}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer"
-            style={{ background: "linear-gradient(135deg, #2563EB, #3B82F6)", boxShadow: "0 4px 12px rgba(37,99,235,0.15)" }}>
+            style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)", boxShadow: "0 4px 12px rgba(79, 70, 229,0.15)" }}>
             <Brain className="w-5 h-5 text-white" />
           </div>
           {!collapsed && (
             <div className="transition-opacity duration-200 animate-fade-in whitespace-nowrap">
               <p className="text-sm font-extrabold text-[#0F172A] leading-tight">Industrial AI</p>
-              <p className="text-[10px] text-blue-600 font-extrabold tracking-wider uppercase leading-tight">Brain</p>
+              <p className="text-[10px] text-indigo-600 font-extrabold tracking-wider uppercase leading-tight">Brain</p>
             </div>
           )}
         </div>
@@ -78,15 +78,15 @@ export default function Sidebar({ mobileOpen, onClose, collapsed = false, onTogg
             const active = pathname === href || pathname.startsWith(href + "/");
             return (
               <Link key={href} href={href} onClick={onClose}
-                className={`relative flex items-center ${collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"} rounded-lg text-sm font-bold transition-all duration-200 group cursor-pointer hover:bg-[#F1F5F9]`}
+                className={`relative flex items-center gap-2.5 ${collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"} rounded-xl text-sm font-bold transition-all duration-200 group cursor-pointer ${active ? "" : "hover:bg-[#EEF1F8]"}`}
                 style={active
-                  ? { background: "rgba(37,99,235,0.08)", color: "#2563EB", borderLeft: collapsed ? "none" : "3px solid #2563EB" }
-                  : { color: "#64748B", borderLeft: collapsed ? "none" : "3px solid transparent" }}>
+                  ? { background: "linear-gradient(135deg, #4F46E5, #6366F1)", color: "#FFFFFF", boxShadow: "0 8px 18px -6px rgba(79,70,229,0.45)" }
+                  : { color: "#64748B" }}>
                 <Icon className={`w-4 h-4 flex-shrink-0 ${collapsed ? "mx-auto" : ""}`} />
                 {!collapsed && (
                   <span className="flex-1 transition-opacity duration-200 animate-fade-in whitespace-nowrap">{label}</span>
                 )}
-                {!collapsed && active && <ChevronRight className="w-3.5 h-3.5 opacity-80 text-blue-600" />}
+                {!collapsed && active && <ChevronRight className="w-3.5 h-3.5 opacity-90 text-white" />}
                 
                 {/* Floating Glassmorphic Tooltip */}
                 {collapsed && (
@@ -105,7 +105,7 @@ export default function Sidebar({ mobileOpen, onClose, collapsed = false, onTogg
             <div className="flex flex-col items-center justify-center gap-3">
               <div className="relative group/avatar cursor-pointer">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #2563EB, #3B82F6)" }}>
+                  style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)" }}>
                   {user?.name?.charAt(0) ?? "B"}
                 </div>
                 {/* Pulsing green status dot */}
@@ -130,7 +130,7 @@ export default function Sidebar({ mobileOpen, onClose, collapsed = false, onTogg
           ) : (
             <div className="border border-[#E2E8F0] rounded-xl p-3 flex items-center gap-3 bg-[#F1F5F9] transition-all duration-300">
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #2563EB, #3B82F6)" }}>
+                style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)" }}>
                 {user?.name?.charAt(0) ?? "B"}
               </div>
               <div className="flex-1 min-w-0">

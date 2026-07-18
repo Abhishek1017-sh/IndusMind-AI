@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { Brain } from "lucide-react";
 
 const HIERARCHY = [
-  { label: "Facility",    color: "#2563EB", icon: "🏭" },
-  { label: "Unit",        color: "#3B82F6", icon: "⚙️" },
-  { label: "System",      color: "#60A5FA", icon: "🔧" },
+  { label: "Facility",    color: "#4F46E5", icon: "🏭" },
+  { label: "Unit",        color: "#6366F1", icon: "⚙️" },
+  { label: "System",      color: "#818CF8", icon: "🔧" },
   { label: "Equipment",   color: "#0EA5E9", icon: "🛠️" },
   { label: "Documents",   color: "#06B6D4", icon: "📄" },
   { label: "Maintenance", color: "#10B981", icon: "🔩" },
@@ -41,9 +41,9 @@ export default function GraphLoader() {
         className="im-pulse-glow mb-6"
         style={{
           width: 52, height: 52, borderRadius: 16,
-          background: "linear-gradient(135deg,#2563EB,#3B82F6)",
+          background: "linear-gradient(135deg,#4F46E5,#6366F1)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 6px 20px rgba(37,99,235,0.25)",
+          boxShadow: "0 6px 20px rgba(79, 70, 229,0.25)",
         }}
       >
         <Brain className="w-7 h-7 text-white" style={{ animation: "im-float 2.5s ease-in-out infinite" }} />
@@ -87,9 +87,9 @@ export default function GraphLoader() {
         <div
           className="mt-5 px-5 py-2 rounded-full text-[11px] font-bold text-white"
           style={{
-            background: "linear-gradient(90deg,#2563EB,#3B82F6)",
+            background: "linear-gradient(90deg,#4F46E5,#6366F1)",
             animation: "im-scale-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both",
-            boxShadow: "0 4px 16px rgba(37,99,235,0.3)",
+            boxShadow: "0 4px 16px rgba(79, 70, 229,0.3)",
           }}
         >
           ✦ Knowledge Graph Ready

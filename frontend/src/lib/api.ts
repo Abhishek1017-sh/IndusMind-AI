@@ -95,6 +95,21 @@ export async function sendChatMessage(message: string): Promise<ChatResponse> {
   return handleResponse<ChatResponse>(res);
 }
 
+// Document-grounded starter questions for the chat welcome screen (built from
+// the user's own uploaded documents on the backend). Empty when nothing is
+// uploaded yet. Never throws — returns [] on any failure so the UI degrades
+// gracefully.
+export async function fetchChatSuggestions(): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/chat/suggestions`, { headers: getHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.suggestions) ? data.suggestions : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Graph ─────────────────────────────────────────────────────────────────
 export interface GraphNode {
   id: string; type: string;
@@ -136,6 +151,28 @@ export function getReportDownloadUrl(id: string) {
   return `${API_BASE}/reports/download/${id}`;
 }
 
+// Downloads a report PDF WITH the auth header. Opening the download URL
+// directly (window.open / <a href>) navigates the browser without the bearer
+// token — the token lives in localStorage, not a cookie — so the backend
+// returns 401 "Not authenticated". Instead we fetch the file as a blob (auth
+// header attached) and trigger a client-side download.
+export async function downloadReportFile(id: string, filename = "report.pdf"): Promise<void> {
+  const res = await fetch(getReportDownloadUrl(id), { headers: getHeaders() });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Failed to download report");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Compliance ────────────────────────────────────────────────────────────
 export async function runComplianceCheck(query: string): Promise<unknown> {
   const res = await fetch(`${API_BASE}/compliance/check?query=${encodeURIComponent(query)}`, {
@@ -148,9 +185,43 @@ export interface ComplianceChecklistItem {
   parameter: string; sop_limit: string; inspected_value: string;
   status: "COMPLIANT" | "NON_COMPLIANT"; deviation: string;
 }
+export interface ModuleReadiness {
+  label: string;
+  score: number;
+  band: string;
+  active: boolean;
+  contributing_documents: number;
+  evidence: string[];
+  reason: string;
+  enable_hint: string;
+}
+export interface DetectedRegulation {
+  code: string; name: string; domain: string; confidence: number; snippet: string;
+}
+export interface ComplianceEvidence { source_document: string; snippet: string; role?: string; }
+export interface ComplianceFinding {
+  type: "overdue" | "missing_evidence" | "compliant";
+  severity: string;
+  activity: string;
+  title: string;
+  description: string;
+  overdue_days: number | null;
+  confidence: number;
+  recommendation: string;
+  cross_document: boolean;
+  evidence: ComplianceEvidence[];
+}
+export interface ComplianceTimelineEvent {
+  date: string; activity: string; event: string; source_document: string | null; status: string;
+}
 export interface ComplianceOverview {
   has_data: boolean;
   message: string;
+  readiness: ModuleReadiness;
+  applicable_regulations: DetectedRegulation[];
+  findings: ComplianceFinding[];
+  violations: ComplianceFinding[];
+  timeline: ComplianceTimelineEvent[];
   compliance_score: number;
   risk_level: string;
   summary: string;
@@ -169,6 +240,22 @@ export interface ComplianceOverview {
 export async function fetchComplianceOverview(): Promise<ComplianceOverview> {
   const res = await fetch(`${API_BASE}/compliance/overview`, { headers: getHeaders() });
   return handleResponse<ComplianceOverview>(res);
+}
+
+// One-click AI Compliance Audit Report → returns a report id (download via getReportDownloadUrl).
+export async function generateComplianceAudit(): Promise<{ id: string; title: string; report_type: string }> {
+  const res = await fetch(`${API_BASE}/compliance/audit-report`, { method: "POST", headers: getHeaders() });
+  return handleResponse<{ id: string; title: string; report_type: string }>(res);
+}
+
+// ─── Module readiness (document-driven routing) ──────────────────────────────
+export interface ModuleReadinessMap {
+  has_documents: boolean;
+  modules: Record<string, ModuleReadiness>;
+}
+export async function fetchModuleReadiness(): Promise<ModuleReadinessMap> {
+  const res = await fetch(`${API_BASE}/documents/module-readiness`, { headers: getHeaders() });
+  return handleResponse<ModuleReadinessMap>(res);
 }
 
 // ─── Maintenance ───────────────────────────────────────────────────────────
@@ -233,6 +320,7 @@ export interface AssetRca {
   spare_parts_involved: string[];
   maintenance_actions_taken: string[]; preventive_recommendations: string[];
   lessons_learned: string[]; confidence_score: number;
+  no_maintenance_evidence?: boolean;
 }
 
 export interface AssetMetadataField {

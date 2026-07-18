@@ -45,9 +45,9 @@ export default function RcaLoader() {
           className="im-pulse-glow mx-auto"
           style={{
             width: 52, height: 52, borderRadius: 16,
-            background: isComplete ? "linear-gradient(135deg,#16A34A,#4ADE80)" : "linear-gradient(135deg,#2563EB,#3B82F6)",
+            background: isComplete ? "linear-gradient(135deg,#16A34A,#4ADE80)" : "linear-gradient(135deg,#4F46E5,#6366F1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: isComplete ? "0 6px 20px rgba(22,163,74,0.25)" : "0 6px 20px rgba(37,99,235,0.25)",
+            boxShadow: isComplete ? "0 6px 20px rgba(22,163,74,0.25)" : "0 6px 20px rgba(79, 70, 229,0.25)",
             transition: "background 0.5s ease, box-shadow 0.5s ease",
           }}
         >
@@ -77,13 +77,13 @@ export default function RcaLoader() {
                 {done ? (
                   <CheckCircle2 className="w-4 h-4 text-[#16A34A] flex-shrink-0" />
                 ) : active ? (
-                  <div className="w-3.5 h-3.5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin flex-shrink-0" />
+                  <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin flex-shrink-0" />
                 ) : (
                   <div className="w-4 h-4 rounded-full border-2 border-[#E2E8F0] flex-shrink-0" />
                 )}
                 <span
                   className="text-xs font-bold"
-                  style={{ color: active ? "#2563EB" : done ? "#16A34A" : "#64748B" }}
+                  style={{ color: active ? "#4F46E5" : done ? "#16A34A" : "#64748B" }}
                 >
                   {step}
                 </span>

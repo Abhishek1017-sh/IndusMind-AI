@@ -17,7 +17,7 @@ from app.models.document import Document, DocumentStatus
 from app.models.user import User, UserRole
 from app.services.graph_db import graph_db
 from app.services.entity_classifier import classify_entity
-from app.services.asset_taxonomy import GROUP_EVENT, GROUP_PARTY, MAINTAINABLE_GROUPS
+from app.services.asset_taxonomy import GROUP_EVENT, MAINTAINABLE_GROUPS
 from app.services.document_classifier import MAINTENANCE_CATEGORIES
 from app.services import asset_store
 
@@ -99,7 +99,7 @@ def build_register(db: Session, user: User) -> Dict[str, Any]:
             if other_end in event_ids or label in _FAILURE_REL:
                 fail_links[asset_end] = fail_links.get(asset_end, 0) + 1
 
-    assets, failures, incidents, vendors = [], [], [], []
+    assets, failures, incidents = [], [], []
     for node in nodes:
         name = node_name(node)
         if not name:
@@ -135,9 +135,9 @@ def build_register(db: Session, user: User) -> Dict[str, Any]:
             assets.append(entry)
         elif result.group == GROUP_EVENT:
             (incidents if result.asset_type == "Incident" else failures).append(entry)
-        elif result.group == GROUP_PARTY:
-            vendors.append(entry)
-        # activity / risk groups are intentionally not shown as asset cards.
+        # PARTY (vendors/orgs), activity and risk groups are intentionally NOT
+        # part of the Maintenance module — organizations belong to the
+        # Knowledge Graph / CRM, not the asset register.
 
     # Enrich maintainable assets with the PostgreSQL asset store (source of
     # truth for aliases, per-field metadata + provenance, criticality and
@@ -163,7 +163,7 @@ def build_register(db: Session, user: User) -> Dict[str, Any]:
 
     assets.sort(key=lambda a: (-a.get("incident_count", 0), -a["doc_count"], a["name"].lower()))
     return {
-        "assets": assets, "failures": failures, "incidents": incidents, "vendors": vendors,
+        "assets": assets, "failures": failures, "incidents": incidents,
         "_graph": graph, "_nodes_by_id": nodes_by_id, "_edges": edges,
     }
 

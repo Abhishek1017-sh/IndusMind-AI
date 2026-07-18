@@ -1,659 +1,511 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ReactFlow, {
-  Background, Controls, MiniMap, BackgroundVariant,
-  type Node, type Edge, MarkerType, ReactFlowProvider, useReactFlow
+  Background,
+  BackgroundVariant,
+  Controls,
+  Handle,
+  MiniMap,
+  Position,
+  ReactFlowProvider,
+  useReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { fetchGraph, fetchRecurringPatterns, type RecurringPattern } from "@/lib/api";
-import GraphLoader from "@/components/loaders/GraphLoader";
+import { motion } from "framer-motion";
 import {
-  Network, RefreshCw, Info, Sparkles, ZoomIn, ZoomOut, Maximize2,
-  Minimize2, Compass, CheckCircle2, AlertTriangle, FileText,
-  User, ShieldAlert, Cpu, Eye, ArrowUpRight, Search, Gauge, Layout, Settings, FileSearch, HelpCircle, EyeOff, Clock, Brain, Landmark, HardHat, PackageOpen, Layers
+  Boxes, Building2, Calendar, Cpu, FileText, MapPin, Network, Package,
+  RefreshCw, Search, Shield, User, Wrench, X, Zap,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 
-// Color mapping specifications
-const TYPE_META: Record<string, { label: string; color: string; bg: string; icon: React.ElementType; status: string }> = {
-  Facility:          { label: "Document Registry",    color: "#2563EB", bg: "#EFF6FF", icon: Landmark,     status: "Operational" },
-  Unit:              { label: "Processing Unit",      color: "#7C3AED", bg: "#F5F3FF", icon: Layers,       status: "Active" },
-  System:            { label: "System Loop",          color: "#0D9488", bg: "#F0FDFA", icon: Network,      status: "Online" },
-  Document:          { label: "SOP Document",         color: "#F97316", bg: "#FFF7ED", icon: FileText,     status: "Active" },
-  SOP:               { label: "SOP Document",         color: "#F97316", bg: "#FFF7ED", icon: FileText,     status: "Active" },
-  Equipment:          { label: "Equipment",            color: "#4F46E5", bg: "#EEF2FF", icon: Cpu,          status: "Healthy" },
-  Machine:           { label: "Equipment",            color: "#4F46E5", bg: "#EEF2FF", icon: Cpu,          status: "Healthy" },
-  MaintenanceRecord: { label: "Maintenance",          color: "#16A34A", bg: "#ECFDF5", icon: CheckCircle2, status: "Completed" },
-  InspectionReport:  { label: "Inspection",           color: "#F59E0B", bg: "#FEFCE8", icon: FileSearch,   status: "Reviewed" },
-  Failure:           { label: "Failures",             color: "#DC2626", bg: "#FEE2E2", icon: AlertTriangle,status: "Investigating" },
-  Sensor:            { label: "Sensors",              color: "#06B6D4", bg: "#ECFEFF", icon: Gauge,        status: "Online" },
-  Engineer:          { label: "Engineer",             color: "#8B5CF6", bg: "#F5F3FF", icon: HardHat,      status: "On Duty" },
-  Person:            { label: "Personnel",            color: "#8B5CF6", bg: "#F5F3FF", icon: HardHat,      status: "On Duty" },
-  SpareParts:        { label: "Spare Parts",          color: "#64748B", bg: "#F1F5F9", icon: PackageOpen,  status: "In Stock" }
+import {
+  fetchGraph, fetchRecurringPatterns,
+  type GraphData, type GraphNode, type RecurringPattern,
+} from "@/lib/api";
+import { computeGraphLayout } from "@/lib/graphLayout";
+import { Badge, Button, EmptyState } from "@/components/ui";
+import { cn } from "@/lib/utils";
+
+/* Every node and edge here is a real entity/relationship the backend extracted
+   from the user's uploaded documents. Nothing is synthesised — an empty graph
+   is shown as an honest empty state, never padded with placeholder assets. */
+
+// Entity type → colour + icon. Colour identifies type only; it never implies a
+// fabricated status (the previous version invented "Operational"/"On Duty").
+type TypeMeta = { color: string; icon: React.ElementType };
+const TYPE_META: Record<string, TypeMeta> = {
+  Document: { color: "#4f46e5", icon: FileText },
+  SOP: { color: "#4f46e5", icon: FileText },
+  Machine: { color: "#0d9488", icon: Cpu },
+  Equipment: { color: "#0d9488", icon: Cpu },
+  Organization: { color: "#b45309", icon: Building2 },
+  Person: { color: "#7c3aed", icon: User },
+  Engineer: { color: "#7c3aed", icon: User },
+  Location: { color: "#0891b2", icon: MapPin },
+  SparePart: { color: "#64748b", icon: Package },
+  Skill: { color: "#0891b2", icon: Zap },
+  Date: { color: "#64748b", icon: Calendar },
+  Regulation: { color: "#b42318", icon: Shield },
+  Incident: { color: "#b42318", icon: Wrench },
+};
+const metaFor = (t: string): TypeMeta => TYPE_META[t] ?? { color: "#64748b", icon: Boxes };
+
+// ── Custom node ─────────────────────────────────────────────────────────────
+type NodeData = {
+  label: string;
+  type: string;
+  state: "normal" | "selected" | "neighbor" | "dim";
 };
 
-const getMeta = (t: string) => TYPE_META[t] ?? { label: "Plant Asset", color: "#64748B", bg: "#F8FAFC", icon: Info, status: "Active" };
-
-// Dynamic tree parser placing Document as parent/root
-function buildTreeFromApi(apiNodes: any[], apiEdges: any[]) {
-  const assignedIds = new Set<string>();
-
-  // Find Document / SOP nodes
-  const documents = apiNodes.filter(n => n.type === "Document" || n.type === "SOP");
-  
-  documents.forEach(d => assignedIds.add(d.id));
-
-  // Map connected entities as children of documents
-  const documentTreeNodes = documents.map(d => {
-    const connectedEdges = apiEdges.filter(e => e.source === d.id || e.target === d.id);
-    const connectedIds = Array.from(new Set(connectedEdges.map(e => e.source === d.id ? e.target : e.source)));
-    
-    const children = apiNodes
-      .filter(n => connectedIds.includes(n.id) && n.type !== "Document" && n.type !== "SOP")
-      .map(c => {
-        assignedIds.add(c.id);
-        const edge = connectedEdges.find(e => e.source === c.id || e.target === c.id || (e.source === d.id && e.target === c.id));
-        return {
-          id: `${d.id}-${c.id}`,
-          realId: c.id,
-          label: c.data?.label || c.label || `${c.type}: ${c.id}`,
-          type: c.type,
-          subtitle: edge ? edge.label : "",
-          status: "Active",
-          children: []
-        };
-      });
-
-    return {
-      id: d.id,
-      realId: d.id,
-      label: d.data?.label || d.label || d.id,
-      type: "Document",
-      status: "Active",
-      children
-    };
-  });
-
-  const unassignedNodes = apiNodes.filter(n => !assignedIds.has(n.id));
-
-  const generalNodes = unassignedNodes.map(n => ({
-    id: n.id,
-    realId: n.id,
-    label: n.data?.label || n.label || n.id,
-    type: n.type,
-    subtitle: "Standalone",
-    status: "Active",
-    children: []
-  }));
-
-  const treeRoot = {
-    id: "root-archive",
-    realId: "root-archive",
-    label: "SOP Document Archive",
-    type: "Facility",
-    status: "Operational",
-    children: [
-      ...documentTreeNodes,
-      ...(generalNodes.length > 0 ? [{
-        id: "sys-standalone",
-        realId: "sys-standalone",
-        label: "Standalone Elements",
-        type: "System",
-        status: "Active",
-        children: generalNodes
-      }] : [])
-    ]
-  };
-
-  return treeRoot;
-}
-
-function CustomNode({ data }: { data: { label: string; type?: string; subtitle?: string; status?: string; hasChildren?: boolean; isExpanded?: boolean; isSelected?: boolean; isFaded?: boolean } }) {
-  const type = data.type ?? "Equipment";
-  const meta = getMeta(type);
+function EntityNode({ data }: NodeProps<NodeData>) {
+  const meta = metaFor(data.type);
   const Icon = meta.icon;
-  const [hovered, setHovered] = useState(false);
-
-  const isInteractiveType = ["Document", "SOP", "Equipment", "Machine", "Facility", "Unit", "System"].includes(type);
-  const isPulsing = data.isSelected || isInteractiveType;
-
+  const { state } = data;
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`w-[170px] h-[65px] px-3.5 py-2.5 bg-white border rounded-[14px] shadow-sm flex flex-col justify-between text-left select-none relative transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer ${
-        data.isSelected ? "border-blue-500 bg-blue-50/40 ring-1 ring-blue-500" : "border-[#E5E7EB]"
-      } ${data.isFaded ? "opacity-35" : "opacity-100"} ${isPulsing ? "node-pulse-active" : ""}`}
-    >
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: `${meta.color}12`, border: `1px solid ${meta.color}25` }}>
-          <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold text-[#0F172A] truncate leading-tight">{data.label}</p>
-          <p className="text-[8px] text-[#64748B] font-bold uppercase tracking-wider mt-0.5">{meta.label}</p>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between mt-1 pt-1 border-t border-[#F1F5F9] text-[8px] text-[#94A3B8] font-bold">
-        <span>{data.subtitle || meta.status}</span>
-        {data.hasChildren && (
-          <span className="text-blue-600 font-extrabold text-[9px]">
-            {data.isExpanded ? "−" : "+"}
-          </span>
-        )}
-      </div>
-
-      {/* Sleek micro-tooltip containing quick mock metadata */}
-      {hovered && (
-        <div className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 px-3 py-2 bg-slate-900/90 backdrop-blur-md text-white text-[9px] font-bold rounded-lg shadow-xl border border-slate-700 pointer-events-none whitespace-nowrap z-50 animate-fade-in flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${data.isSelected ? "bg-blue-400" : "bg-green-400"} animate-pulse`} />
-            <span className="text-slate-100">Status: {data.status || meta.status}</span>
-          </div>
-          <div className="text-[8.5px] text-slate-350 font-semibold">Category: {meta.label}</div>
-          {data.subtitle && (
-            <div className="text-[8.5px] text-slate-350 font-semibold">Relation: {data.subtitle}</div>
-          )}
-        </div>
+      className={cn(
+        "flex w-44 items-center gap-2 rounded-ui-lg border bg-surface px-2.5 py-2 shadow-e1 transition-all duration-200",
+        state === "selected" && "border-transparent ring-2 shadow-e3",
+        state === "neighbor" && "border-line-strong",
+        state === "normal" && "border-line",
+        state === "dim" && "border-line opacity-35"
       )}
+      style={state === "selected" ? ({ "--tw-ring-color": meta.color } as React.CSSProperties) : undefined}
+    >
+      <Handle type="target" position={Position.Left} className="!h-1 !w-1 !border-0 !bg-transparent" />
+      <span
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-ui-sm"
+        style={{ background: `${meta.color}14`, color: meta.color }}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11px] font-bold leading-tight text-ink" title={data.label}>
+          {data.label}
+        </p>
+        <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-ink-tertiary">
+          {data.type}
+        </p>
+      </div>
+      <Handle type="source" position={Position.Right} className="!h-1 !w-1 !border-0 !bg-transparent" />
     </div>
   );
 }
+const nodeTypes = { entity: EntityNode };
 
-const nodeTypes = { default: CustomNode };
+// ── Graph canvas ────────────────────────────────────────────────────────────
+function GraphCanvas({
+  graph, selectedId, onSelect,
+}: {
+  graph: GraphData;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const { fitView } = useReactFlow();
 
-function GraphInner() {
-  const router = useRouter();
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
-  
-  // Track dynamic API database tree
-  const [treeData, setTreeData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  
-  // Track expanded tree nodes
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    new Set(["root-archive", "sys-standalone"])
+  const positions = useMemo(
+    () => computeGraphLayout(graph.nodes.map((n) => n.id), graph.relationships),
+    [graph]
   );
-  
-  // Track clicked / selected node
-  const [selectedNodeId, setSelectedNodeId] = useState<string>("root-archive");
+
+  // Neighbour set of the selected node → drives highlight/fade.
+  const neighbors = useMemo(() => {
+    if (!selectedId) return new Set<string>();
+    const s = new Set<string>();
+    for (const e of graph.relationships) {
+      if (e.source === selectedId) s.add(e.target);
+      if (e.target === selectedId) s.add(e.source);
+    }
+    return s;
+  }, [selectedId, graph.relationships]);
+
+  const nodes: Node<NodeData>[] = useMemo(
+    () =>
+      graph.nodes.map((n) => {
+        const state: NodeData["state"] = !selectedId
+          ? "normal"
+          : n.id === selectedId
+          ? "selected"
+          : neighbors.has(n.id)
+          ? "neighbor"
+          : "dim";
+        return {
+          id: n.id,
+          type: "entity",
+          position: positions.get(n.id) ?? { x: 0, y: 0 },
+          data: { label: n.data?.label ?? n.id, type: n.type, state },
+        };
+      }),
+    [graph.nodes, positions, selectedId, neighbors]
+  );
+
+  const edges: Edge[] = useMemo(
+    () =>
+      graph.relationships.map((e) => {
+        const active = !!selectedId && (e.source === selectedId || e.target === selectedId);
+        const dim = !!selectedId && !active;
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          label: active ? e.label : undefined,
+          type: "smoothstep",
+          animated: active,
+          labelBgStyle: { fill: "var(--color-surface)" },
+          labelStyle: { fontSize: 10, fontWeight: 600, fill: "var(--color-ink-secondary)" },
+          style: {
+            stroke: active ? "var(--color-brand)" : "var(--color-line-strong)",
+            strokeWidth: active ? 2 : 1,
+            opacity: dim ? 0.25 : 1,
+          },
+        };
+      }),
+    [graph.relationships, selectedId]
+  );
+
+  useEffect(() => {
+    const t = setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 60);
+    return () => clearTimeout(t);
+  }, [graph, fitView]);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      onNodeClick={(_, n) => onSelect(n.id)}
+      onPaneClick={() => onSelect(null)}
+      fitView
+      minZoom={0.15}
+      maxZoom={2}
+      proOptions={{ hideAttribution: true }}
+      className="bg-canvas"
+    >
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--color-line)" />
+      <Controls
+        showInteractive={false}
+        className="!rounded-ui-md !border !border-line !bg-surface !shadow-e2 [&>button]:!border-line [&>button]:!text-ink-secondary"
+      />
+      <MiniMap
+        pannable
+        zoomable
+        className="!rounded-ui-md !border !border-line !bg-surface"
+        maskColor="rgba(11,18,32,0.06)"
+        nodeColor={(n) => metaFor((n.data as NodeData)?.type ?? "")?.color}
+        nodeStrokeWidth={0}
+      />
+    </ReactFlow>
+  );
+}
+
+// ── Detail panel (grounded node info) ───────────────────────────────────────
+function DetailPanel({
+  node, graph, onClose, onSelect,
+}: {
+  node: GraphNode;
+  graph: GraphData;
+  onClose: () => void;
+  onSelect: (id: string) => void;
+}) {
+  const meta = metaFor(node.type);
+  const Icon = meta.icon;
+  const byId = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph.nodes]);
+
+  const connections = useMemo(() => {
+    const out: { id: string; label: string; rel: string }[] = [];
+    for (const e of graph.relationships) {
+      if (e.source === node.id && byId.has(e.target))
+        out.push({ id: e.target, label: byId.get(e.target)!.data?.label ?? e.target, rel: e.label });
+      else if (e.target === node.id && byId.has(e.source))
+        out.push({ id: e.source, label: byId.get(e.source)!.data?.label ?? e.source, rel: e.label });
+    }
+    return out;
+  }, [node, graph.relationships, byId]);
+
+  // Surface any extra grounded properties the backend attached (excluding internals).
+  const props = Object.entries(node.data ?? {}).filter(
+    ([k, v]) =>
+      !["label", "id", "document_ids"].includes(k) &&
+      (typeof v === "string" || typeof v === "number") &&
+      String(v).length > 0
+  );
+
+  return (
+    <motion.aside
+      initial={{ x: 24, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      className="flex w-72 shrink-0 flex-col overflow-hidden rounded-ui-xl border border-line bg-surface shadow-e1"
+    >
+      <div className="flex items-start justify-between gap-2 border-b border-line px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-md"
+            style={{ background: `${meta.color}14`, color: meta.color }}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink" title={node.data?.label}>
+              {node.data?.label ?? node.id}
+            </p>
+            <Badge tone="brand">{node.type}</Badge>
+          </div>
+        </div>
+        <button onClick={onClose} className="flex h-6 w-6 items-center justify-center rounded-ui-sm text-ink-tertiary hover:bg-subtle">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {props.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Attributes</p>
+            <dl className="space-y-1">
+              {props.map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-2 text-xs">
+                  <dt className="capitalize text-ink-tertiary">{k.replace(/_/g, " ")}</dt>
+                  <dd className="truncate font-semibold text-ink" title={String(v)}>{String(v)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+
+        <div>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">
+            Relationships · {connections.length}
+          </p>
+          {connections.length === 0 ? (
+            <p className="text-xs text-ink-tertiary">No relationships extracted for this entity.</p>
+          ) : (
+            <ul className="space-y-1">
+              {connections.map((c, i) => {
+                const cm = metaFor(byId.get(c.id)?.type ?? "");
+                const CIcon = cm.icon;
+                return (
+                  <li key={`${c.id}-${i}`}>
+                    <button
+                      onClick={() => onSelect(c.id)}
+                      className="flex w-full items-center gap-2 rounded-ui-md border border-line px-2 py-1.5 text-left transition-colors hover:bg-subtle"
+                    >
+                      <CIcon className="h-3 w-3 shrink-0" style={{ color: cm.color }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-semibold text-ink">{c.label}</span>
+                        <span className="block truncate text-[10px] text-ink-tertiary">{c.rel}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </motion.aside>
+  );
+}
+
+// ── Page ────────────────────────────────────────────────────────────────────
+export default function GraphPage() {
+  const [graph, setGraph] = useState<GraphData>({ nodes: [], relationships: [] });
   const [patterns, setPatterns] = useState<RecurringPattern[]>([]);
-  const [searchVal, setSearchVal] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [miniMapVisible, setMiniMapVisible] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Flattened active nodes & edges based on expansion
-  const [visibleNodes, setVisibleNodes] = useState<Node[]>([]);
-  const [visibleEdges, setVisibleEdges] = useState<Edge[]>([]);
-
-  const loadGraph = useCallback(() => {
+  const refresh = useCallback(() => {
     setLoading(true);
-    fetchGraph()
-      .then(data => {
-        const root = buildTreeFromApi(data.nodes ?? [], data.relationships ?? []);
-        setTreeData(root);
-        
-        // Find default document node to select and auto-expand
-        const defaultDoc = (data.nodes ?? []).find(n => n.type === "Document" || n.type === "SOP");
-        if (defaultDoc) {
-          setSelectedNodeId(defaultDoc.id);
-          setExpandedNodes(new Set(["root-archive", "sys-standalone", defaultDoc.id]));
-        } else {
-          setSelectedNodeId("root-archive");
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-    fetchRecurringPatterns().then(setPatterns).catch(console.error);
+    setReloadKey((k) => k + 1);
   }, []);
 
   useEffect(() => {
-    loadGraph();
-  }, [loadGraph]);
-
-  // Compute Left-to-Right Hierarchy Layout
-  useEffect(() => {
-    if (!treeData) return;
-
-    const nodesList: Node[] = [];
-    const edgesList: Edge[] = [];
-    let yPos = 50;
-
-    function traverse(node: any, level: number, parentId: string | null): number {
-      const isExpanded = expandedNodes.has(node.id);
-      const isSelected = selectedNodeId === node.id;
-      
-      // Determine if this node lies on the selected pathway (ancestor/descendant)
-      const isAncestor = isNodeAncestorOf(treeData, node.id, selectedNodeId);
-      const isDescendant = isNodeDescendantOf(findSubtree(treeData, selectedNodeId), node.id);
-      const isActivePath = isSelected || isAncestor || isDescendant;
-      
-      const isFaded = selectedNodeId ? !isActivePath : false;
-
-      const nodeEntry: Node = {
-        id: node.id,
-        type: "default",
-        position: { x: level * 230 + 50, y: 0 },
-        data: {
-          label: node.label,
-          type: node.type,
-          subtitle: node.subtitle,
-          status: node.status,
-          hasChildren: node.children && node.children.length > 0,
-          isExpanded,
-          isSelected,
-          isFaded
-        }
-      };
-
-      if (parentId) {
-        edgesList.push({
-          id: `edge-${parentId}-${node.id}`,
-          source: parentId,
-          target: node.id,
-          type: "smoothstep",
-          animated: isActivePath,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 14,
-            height: 14,
-            color: isActivePath ? "#2563EB" : "#CBD5E1"
-          },
-          style: {
-            stroke: isActivePath ? "#2563EB" : "#CBD5E1",
-            strokeWidth: isActivePath ? 2.5 : 1.5,
-            transition: "stroke 0.2s"
-          }
-        });
-      }
-
-      nodesList.push(nodeEntry);
-
-      let computedY = 0;
-      if (isExpanded && node.children && node.children.length > 0) {
-        const childYList: number[] = [];
-        node.children.forEach((child: any) => {
-          const cy = traverse(child, level + 1, node.id);
-          childYList.push(cy);
-        });
-        const minY = Math.min(...childYList);
-        const maxY = Math.max(...childYList);
-        computedY = minY + (maxY - minY) / 2;
+    let alive = true;
+    (async () => {
+      const [g, p] = await Promise.allSettled([fetchGraph(), fetchRecurringPatterns()]);
+      if (!alive) return;
+      if (g.status === "fulfilled") {
+        setGraph(g.value ?? { nodes: [], relationships: [] });
+        setError(null);
       } else {
-        computedY = yPos;
-        yPos += 95;
+        setError("Couldn't reach the graph service.");
       }
+      if (p.status === "fulfilled") setPatterns(p.value ?? []);
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [reloadKey]);
 
-      nodeEntry.position.y = computedY;
-      return computedY;
-    }
+  const selectedNode = useMemo(
+    () => graph.nodes.find((n) => n.id === selectedId) ?? null,
+    [graph.nodes, selectedId]
+  );
 
-    traverse(treeData, 0, null);
-    setVisibleNodes(nodesList);
-    setVisibleEdges(edgesList);
-  }, [expandedNodes, selectedNodeId, treeData]);
+  const searchResults = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return graph.nodes
+      .filter((n) => (n.data?.label ?? "").toLowerCase().includes(q) || n.type.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [query, graph.nodes]);
 
-  const handleNodeClick = (_: any, node: Node) => {
-    setSelectedNodeId(node.id);
-    
-    const rawRef = findSubtree(treeData, node.id);
-    if (rawRef && rawRef.children && rawRef.children.length > 0) {
-      setExpandedNodes(prev => {
-        const next = new Set(prev);
-        if (next.has(node.id)) {
-          next.delete(node.id);
-        } else {
-          next.add(node.id);
-        }
-        return next;
-      });
-    }
-  };
+  const typeCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of graph.nodes) m.set(n.type, (m.get(n.type) ?? 0) + 1);
+    return [...m].sort((a, b) => b[1] - a[1]);
+  }, [graph.nodes]);
 
-  const selectedNodeDetails = useMemo(() => {
-    if (!treeData) return null;
-    const raw = findSubtree(treeData, selectedNodeId);
-    if (!raw) return null;
-    return {
-      name: raw.label,
-      type: raw.type,
-      status: raw.status,
-      subtitle: raw.subtitle
-    };
-  }, [selectedNodeId, treeData]);
-
-  function findSubtree(root: any, id: string): any {
-    if (!root) return null;
-    if (root.id === id) return root;
-    if (root.children) {
-      for (const child of root.children) {
-        const found = findSubtree(child, id);
-        if (found) return found;
-      }
-    }
-    return null;
-  }
-
-  function isNodeAncestorOf(root: any, possibleAncestorId: string, nodeId: string): boolean {
-    const ancestorSubtree = findSubtree(root, possibleAncestorId);
-    if (!ancestorSubtree) return false;
-    return !!findSubtree(ancestorSubtree, nodeId) && possibleAncestorId !== nodeId;
-  }
-
-  function isNodeDescendantOf(subtreeRoot: any, possibleDescendantId: string): boolean {
-    if (!subtreeRoot) return false;
-    return !!findSubtree(subtreeRoot, possibleDescendantId);
-  }
-
-  const expandAll = () => {
-    if (!treeData) return;
-    const allIds = new Set<string>();
-    function collect(node: any) {
-      if (node.children && node.children.length > 0) {
-        allIds.add(node.id);
-        node.children.forEach(collect);
-      }
-    }
-    collect(treeData);
-    setExpandedNodes(allIds);
-  };
-
-  const collapseAll = () => {
-    setExpandedNodes(new Set(["root-archive"]));
-  };
-
-  const resetView = () => {
-    const firstDocId = treeData?.children?.[0]?.id || "root-archive";
-    setExpandedNodes(new Set(["root-archive", "sys-standalone", firstDocId]));
-    setSelectedNodeId(firstDocId);
-    setTimeout(() => fitView({ duration: 500 }), 50);
-  };
-
-  const suggestions = useMemo(() => {
-    if (!searchVal.trim() || !treeData) return [];
-    const collected: any[] = [];
-    function collect(node: any) {
-      if (node.label.toLowerCase().includes(searchVal.toLowerCase())) {
-        collected.push(node);
-      }
-      if (node.children) node.children.forEach(collect);
-    }
-    collect(treeData);
-    return collected.slice(0, 5);
-  }, [searchVal, treeData]);
-
-  const selectSuggested = (item: any) => {
-    setSearchVal("");
-    setSearchFocused(false);
-    setSelectedNodeId(item.id);
-    
-    const ancestors: string[] = [];
-    function traceAncestors(node: any, targetId: string): boolean {
-      if (node.id === targetId) return true;
-      if (node.children) {
-        for (const child of node.children) {
-          if (traceAncestors(child, targetId)) {
-            ancestors.push(node.id);
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-    traceAncestors(treeData, item.id);
-    setExpandedNodes(prev => {
-      const next = new Set(prev);
-      ancestors.forEach(id => next.add(id));
-      return next;
-    });
-  };
+  const hasGraph = graph.nodes.length > 0;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-60px)] p-6 bg-[#FAFAF8]">
-      {/* Header toolbar */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500 shadow-sm">
-            <Network className="w-4 h-4 text-white" />
+    <div className="flex h-[calc(100vh-53px)] flex-col bg-canvas">
+      {/* Toolbar */}
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-5 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-ui-md bg-brand">
+            <Network className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-[#0F172A] tracking-tight">Enterprise Asset Dependency Explorer</h1>
-            <p className="text-[10px] text-[#64748B] font-semibold">Left-to-right topological tree mapping SOP Document dependencies.</p>
+            <h1 className="text-[13px] font-bold leading-tight text-ink">Knowledge Graph</h1>
+            <p className="text-[11px] text-ink-tertiary">
+              {hasGraph
+                ? `${graph.nodes.length} entities · ${graph.relationships.length} relationships`
+                : "Entities & relationships from your documents"}
+            </p>
           </div>
         </div>
 
-        {/* Dynamic Search Autocomplete */}
-        <div className="relative w-72">
-          <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={searchVal}
-            onChange={e => setSearchVal(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-            placeholder="Search equipment, procedures, personnel..."
-            className="w-full pl-9 pr-4 py-1.5 text-xs border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 bg-white"
-          />
-          {searchFocused && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-[#E2E8F0] rounded-xl shadow-lg z-55 max-h-48 overflow-y-auto p-1.5">
-              {suggestions.map(s => {
-                const meta = getMeta(s.type);
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => selectSuggested(s)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-[#F1F5F9] rounded-lg text-left border-0 bg-transparent cursor-pointer"
-                  >
-                    <meta.icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
-                    <span className="text-xs text-[#0F172A] font-semibold truncate">
-                      {s.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-5 flex-1 min-h-0">
-        {/* Main Workspace Graph Container */}
-        <div className="flex-1 min-h-[360px] md:min-h-0 bg-[#FAFAF8] border border-[#E5E7EB] rounded-[18px] overflow-hidden shadow-sm flex flex-col relative">
-          
-          {/* Top Toolbar Action Buttons */}
-          <div className="absolute top-4 left-4 z-10 flex gap-1.5">
-            <button onClick={expandAll} className="px-3 py-1.5 bg-white border border-[#E2E8F0] hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] rounded-xl text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1">
-              Expand All
-            </button>
-            <button onClick={collapseAll} className="px-3 py-1.5 bg-white border border-[#E2E8F0] hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] rounded-xl text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1">
-              Collapse All
-            </button>
-            <button onClick={resetView} className="px-3 py-1.5 bg-white border border-[#E2E8F0] hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] rounded-xl text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1">
-              Reset Tree
-            </button>
-          </div>
-
-          {/* Canvas Wrapper */}
-          <div className="flex-1 min-h-0 relative">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <GraphLoader />
+        <div className="flex items-center gap-2">
+          <div className="relative w-60">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search entities…"
+              disabled={!hasGraph}
+              className="w-full rounded-ui-md border border-line bg-canvas py-1.5 pl-8 pr-3 text-xs text-ink outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/15 disabled:opacity-50"
+            />
+            {searchResults.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-ui-md border border-line bg-surface p-1 shadow-e3">
+                {searchResults.map((n) => {
+                  const m = metaFor(n.type);
+                  const I = m.icon;
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => { setSelectedId(n.id); setQuery(""); }}
+                      className="flex w-full items-center gap-2 rounded-ui-sm px-2 py-1.5 text-left hover:bg-subtle"
+                    >
+                      <I className="h-3.5 w-3.5 shrink-0" style={{ color: m.color }} />
+                      <span className="truncate text-xs font-semibold text-ink">{n.data?.label ?? n.id}</span>
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <ReactFlow
-                nodes={visibleNodes}
-                edges={visibleEdges}
-                nodeTypes={nodeTypes}
-                onNodeClick={handleNodeClick}
-                fitView
-                fitViewOptions={{ padding: 0.15 }}
-                minZoom={0.1}
-                maxZoom={2.0}
-              >
-                <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E2E8F0" />
-                
-                {/* Standard React Flow Zoom & Fit Controls overlay */}
-                <Controls className="bg-white border border-[#E2E8F0] shadow-sm rounded-xl p-1 flex flex-col gap-0.5" />
-
-                {/* Minimap override (glassmorphic styling) */}
-                {miniMapVisible && (
-                  <MiniMap
-                    nodeColor={n => getMeta((n.data as any).type ?? "Equipment").color}
-                    className="rounded-xl border border-[#E2E8F0] shadow-sm bg-white/70 backdrop-blur-md"
-                  />
-                )}
-              </ReactFlow>
             )}
           </div>
+          <Button size="sm" onClick={refresh} disabled={loading}>
+            <RefreshCw className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+            Refresh
+          </Button>
+        </div>
+      </header>
 
-          {/* Bottom Toolbar Control Buttons */}
-          <div className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 p-1.5 bg-white border border-[#E2E8F0] rounded-xl shadow-sm">
-            <button onClick={() => setMiniMapVisible(v => !v)} title="Toggle Minimap" className="p-2 hover:bg-[#F1F5F9] rounded-lg cursor-pointer text-[#64748B] hover:text-[#0F172A] border-0 bg-transparent">
-              <Eye className="w-4 h-4" />
-            </button>
-            <div className="w-px h-4 bg-[#E2E8F0]" />
-            <button onClick={() => zoomIn()} title="Zoom In" className="p-2 hover:bg-[#F1F5F9] rounded-lg cursor-pointer text-[#64748B] hover:text-[#0F172A] border-0 bg-transparent">
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button onClick={() => zoomOut()} title="Zoom Out" className="p-2 hover:bg-[#F1F5F9] rounded-lg cursor-pointer text-[#64748B] hover:text-[#0F172A] border-0 bg-transparent">
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <button onClick={() => fitView({ duration: 600 })} title="Fit Screen" className="p-2 hover:bg-[#F1F5F9] rounded-lg cursor-pointer text-[#64748B] hover:text-[#0F172A] border-0 bg-transparent">
-              <Maximize2 className="w-4 h-4" />
-            </button>
-            <div className="w-px h-4 bg-[#E2E8F0]" />
-            <button onClick={loadGraph} title="Refresh Network" className="p-2 hover:bg-[#F1F5F9] rounded-lg cursor-pointer text-[#64748B] hover:text-[#0F172A] border-0 bg-transparent">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
+      {/* Body */}
+      <div className="flex min-h-0 flex-1 gap-3 p-3">
+        {/* Canvas */}
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-ui-xl border border-line bg-canvas shadow-e1">
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+            </div>
+          ) : error ? (
+            <EmptyState
+              className="h-full"
+              icon={Network}
+              title="Graph unavailable"
+              reason="The graph service couldn't be reached, so entities can't be shown. This does not mean the graph is empty."
+              action={<Button size="sm" onClick={refresh}>Retry</Button>}
+            />
+          ) : !hasGraph ? (
+            <EmptyState
+              className="h-full"
+              icon={Network}
+              title="No knowledge graph yet"
+              reason="The graph is built by extracting entities and relationships from your uploaded documents — with none uploaded, there is nothing to map."
+              hint="Upload a document to populate the graph."
+            />
+          ) : (
+            <ReactFlowProvider>
+              <GraphCanvas graph={graph} selectedId={selectedId} onSelect={setSelectedId} />
+              {/* Type legend */}
+              <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1.5">
+                {typeCounts.slice(0, 6).map(([type, count]) => {
+                  const m = metaFor(type);
+                  return (
+                    <span
+                      key={type}
+                      className="flex items-center gap-1.5 rounded-ui-sm border border-line bg-surface/90 px-1.5 py-0.5 text-[10px] font-semibold text-ink-secondary backdrop-blur"
+                    >
+                      <span className="h-2 w-2 rounded-full" style={{ background: m.color }} />
+                      {type} · {count}
+                    </span>
+                  );
+                })}
+              </div>
+            </ReactFlowProvider>
+          )}
         </div>
 
-        {/* Right Info Drawer Panel */}
-        <div className="w-full md:w-80 flex flex-col gap-4 flex-shrink-0">
-          
-          {/* Selected Node Details Card */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm space-y-4 flex-1 overflow-y-auto">
-            {selectedNodeDetails ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2.5 border-b border-[#E2E8F0] pb-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{
-                      background: `${getMeta(selectedNodeDetails.type).color}10`,
-                      border: `1.5px solid ${getMeta(selectedNodeDetails.type).color}20`
-                    }}>
-                    <Sparkles className="w-4 h-4" style={{ color: getMeta(selectedNodeDetails.type).color }} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-[#0F172A] truncate w-52">
-                      {selectedNodeDetails.name}
-                    </h3>
-                    <p className="text-[10px] text-[#64748B] font-semibold mt-0.5">Category: {getMeta(selectedNodeDetails.type).label}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3.5">
-                  {(selectedNodeDetails.type === "Machine" || selectedNodeDetails.type === "Equipment") && (
-                    <>
-                      <div className="grid grid-cols-2 gap-2 text-center">
-                        <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
-                          <p className="text-sm font-extrabold text-[#16A34A]">98.2%</p>
-                          <p className="text-[9px] text-[#94A3B8] font-bold uppercase mt-0.5">Health Index</p>
-                        </div>
-                        <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl">
-                          <p className="text-sm font-extrabold text-[#DC2626]">Low</p>
-                          <p className="text-[9px] text-[#94A3B8] font-bold uppercase mt-0.5">Criticality</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-[#94A3B8] uppercase">Recommended AI Action</p>
-                        <p className="text-xs text-slate-700 leading-relaxed font-semibold">
-                          Evaluate bearing alignment during weekly inspection rounds. Standard: SOP-Sec4-V2.
-                        </p>
-                      </div>
-
-                      {/* Mock history events */}
-                      <div className="space-y-2 border-t border-[#E2E8F0] pt-3">
-                        <p className="text-[10px] font-bold text-[#94A3B8] uppercase flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Maintenance History</p>
-                        <div className="space-y-1.5 pl-3 border-l-2 border-slate-100">
-                          <div className="text-xs">
-                            <span className="font-bold text-[#0F172A]">Lubricant Flush</span>
-                            <span className="text-[10px] text-[#64748B] font-mono ml-2">12 June</span>
-                          </div>
-                          <div className="text-xs">
-                            <span className="font-bold text-[#0F172A]">Sensor Calibration</span>
-                            <span className="text-[10px] text-[#64748B] font-mono ml-2">08 May</span>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {selectedNodeDetails.type !== "Machine" && selectedNodeDetails.type !== "Equipment" && (
-                    <div className="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl space-y-2">
-                      <p className="text-[10px] font-bold text-[#94A3B8] uppercase">AI Entity Overview</p>
-                      <p className="text-xs text-[#64748B] leading-relaxed font-semibold">
-                        {selectedNodeDetails.subtitle
-                          ? `Associated relation label: "${selectedNodeDetails.subtitle}". `
-                          : ""}
-                        This topological entry is indexed inside the plant knowledge base to ground AI Copilot responses.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Operational redirection links */}
-                  <div className="space-y-2 border-t border-[#E2E8F0] pt-4">
-                    <button
-                      onClick={() => router.push("/chat")}
-                      className="w-full flex items-center justify-between p-2.5 bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-xl text-xs font-bold text-[#0F172A] cursor-pointer transition-colors border-0 text-left"
-                    >
-                      <span className="flex items-center gap-1.5"><Brain className="w-3.5 h-3.5 text-blue-600" /> Open AI Copilot</span>
-                      <ArrowUpRight className="w-3.5 h-3.5 text-[#64748B]" />
-                    </button>
-                    <button
-                      onClick={() => router.push("/documents")}
-                      className="w-full flex items-center justify-between p-2.5 bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-xl text-xs font-bold text-[#0F172A] cursor-pointer transition-colors border-0 text-left"
-                    >
-                      <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-amber-600" /> Reference SOP Documents</span>
-                      <ArrowUpRight className="w-3.5 h-3.5 text-[#64748B]" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+        {/* Right rail */}
+        {hasGraph && !loading && (
+          <div className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto">
+            {selectedNode ? (
+              <DetailPanel
+                node={selectedNode}
+                graph={graph}
+                onClose={() => setSelectedId(null)}
+                onSelect={setSelectedId}
+              />
             ) : (
-              <div className="py-20 text-center space-y-2">
-                <Compass className="w-10 h-10 mx-auto text-[#CBD5E1]" />
-                <p className="text-xs font-bold text-[#64748B]">No Node Selected</p>
-                <p className="text-[10px] text-[#94A3B8] max-w-xs mx-auto">
-                  Click on any refinery node in the topology layout to reveal connections, incident timeline details, and AI maintenance guidelines.
+              <div className="rounded-ui-xl border border-line bg-surface p-4 shadow-e1">
+                <p className="text-xs font-semibold text-ink">Select an entity</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-ink-tertiary">
+                  Click any node to highlight its relationships and inspect its extracted attributes.
                 </p>
               </div>
             )}
-          </div>
-          
-          {/* Static Legend Types */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-sm">
-            <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider mb-2">Topology Categories</p>
-            <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-[#64748B]">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#EFF6FF] border border-[#2563EB]" /> Facility</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#FFF7ED] border border-[#F97316]" /> Documents</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#EEF2FF] border border-[#4F46E5]" /> Equipment</span>
-            </div>
-          </div>
 
-        </div>
+            {patterns.length > 0 && (
+              <div className="rounded-ui-xl border border-line bg-surface shadow-e1">
+                <div className="border-b border-line px-4 py-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-ink-tertiary">
+                    Recurring across documents
+                  </p>
+                </div>
+                <ul className="divide-y divide-line">
+                  {patterns.slice(0, 6).map((p, i) => {
+                    const m = metaFor(p.type);
+                    const I = m.icon;
+                    return (
+                      <li key={`${p.name}-${i}`} className="flex items-center gap-2 px-4 py-2">
+                        <I className="h-3.5 w-3.5 shrink-0" style={{ color: m.color }} />
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink" title={p.name}>
+                          {p.name}
+                        </span>
+                        <Badge tone="neutral">{p.doc_count} docs</Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
-  );
-}
-
-// ReactFlowProvider wrapper export
-export default function GraphPage() {
-  return (
-    <ReactFlowProvider>
-      <GraphInner />
-    </ReactFlowProvider>
   );
 }

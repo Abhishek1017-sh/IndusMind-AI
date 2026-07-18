@@ -101,7 +101,7 @@ def maintenance_overview(
         "asset_counts": type_counts,             # legacy alias
         "failures": register["failures"],
         "incidents": register["incidents"],
-        "vendors": register["vendors"],
+        "vendors": [],  # organizations are not part of Maintenance (kept for API compat)
         "documents": [ms.doc_out(d) for d in maintenance_docs],
         "recent_incidents": recent_incidents,
         "recurring_patterns": patterns,

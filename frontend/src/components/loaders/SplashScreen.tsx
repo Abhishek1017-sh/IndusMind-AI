@@ -65,21 +65,21 @@ export default function SplashScreen({ onComplete }: Props) {
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.55 }}>
         <defs>
           <pattern id="sp-grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(37,99,235,0.07)" strokeWidth="1" />
+            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(79, 70, 229,0.07)" strokeWidth="1" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sp-grid)" />
 
         {/* Animated network nodes */}
         {[
-          { cx: "15%",  cy: "20%",  r: 3.5, color: "#2563EB", delay: "0s"    },
-          { cx: "85%",  cy: "15%",  r: 4,   color: "#60A5FA", delay: "0.4s"  },
-          { cx: "70%",  cy: "75%",  r: 3,   color: "#2563EB", delay: "0.8s"  },
-          { cx: "25%",  cy: "80%",  r: 4.5, color: "#60A5FA", delay: "0.2s"  },
-          { cx: "50%",  cy: "30%",  r: 3,   color: "#2563EB", delay: "0.6s"  },
-          { cx: "10%",  cy: "55%",  r: 3.5, color: "#60A5FA", delay: "1s"    },
-          { cx: "90%",  cy: "50%",  r: 4,   color: "#2563EB", delay: "0.3s"  },
-          { cx: "40%",  cy: "90%",  r: 3,   color: "#60A5FA", delay: "0.7s"  },
+          { cx: "15%",  cy: "20%",  r: 3.5, color: "#4F46E5", delay: "0s"    },
+          { cx: "85%",  cy: "15%",  r: 4,   color: "#818CF8", delay: "0.4s"  },
+          { cx: "70%",  cy: "75%",  r: 3,   color: "#4F46E5", delay: "0.8s"  },
+          { cx: "25%",  cy: "80%",  r: 4.5, color: "#818CF8", delay: "0.2s"  },
+          { cx: "50%",  cy: "30%",  r: 3,   color: "#4F46E5", delay: "0.6s"  },
+          { cx: "10%",  cy: "55%",  r: 3.5, color: "#818CF8", delay: "1s"    },
+          { cx: "90%",  cy: "50%",  r: 4,   color: "#4F46E5", delay: "0.3s"  },
+          { cx: "40%",  cy: "90%",  r: 3,   color: "#818CF8", delay: "0.7s"  },
         ].map((n, i) => (
           <circle
             key={i}
@@ -104,7 +104,7 @@ export default function SplashScreen({ onComplete }: Props) {
           <line
             key={i}
             x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-            stroke="rgba(37,99,235,0.12)"
+            stroke="rgba(79, 70, 229,0.12)"
             strokeWidth="1"
             strokeDasharray="4 6"
             style={{ animation: `im-dash 3s linear ${i * 0.3}s infinite` }}
@@ -122,7 +122,7 @@ export default function SplashScreen({ onComplete }: Props) {
           <circle
             key={`p-${i}`}
             cx={p.cx} cy={p.cy} r="2"
-            fill="#2563EB"
+            fill="#4F46E5"
             style={{ animation: `im-float 4s ease-in-out ${p.delay} infinite`, opacity: 0.3 }}
           />
         ))}
@@ -136,9 +136,9 @@ export default function SplashScreen({ onComplete }: Props) {
           className="im-scale-in im-pulse-glow"
           style={{
             width: 72, height: 72, borderRadius: 20,
-            background: "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)",
+            background: "linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 8px 32px rgba(37,99,235,0.25)",
+            boxShadow: "0 8px 32px rgba(79, 70, 229,0.25)",
           }}
         >
           <Brain className="w-9 h-9 text-white" style={{ animation: "im-float 3s ease-in-out infinite" }} />
@@ -147,7 +147,7 @@ export default function SplashScreen({ onComplete }: Props) {
         {/* Brand text */}
         <div className="im-fade-in im-delay-200 text-center">
           <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">IndusMind AI</h1>
-          <p className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mt-0.5">
+          <p className="text-xs font-bold text-[#4F46E5] uppercase tracking-widest mt-0.5">
             Industrial Knowledge Intelligence
           </p>
         </div>
@@ -175,7 +175,7 @@ export default function SplashScreen({ onComplete }: Props) {
             style={{
               height: "100%",
               width: `${progress}%`,
-              background: "linear-gradient(90deg, #2563EB, #60A5FA)",
+              background: "linear-gradient(90deg, #4F46E5, #818CF8)",
               borderRadius: 99,
               transition: "width 0.08s linear",
             }}

@@ -37,7 +37,7 @@ export default function LoginLoader() {
       <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.4 }}>
         <defs>
           <pattern id="ll-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(37,99,235,0.07)" strokeWidth="1" />
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(79, 70, 229,0.07)" strokeWidth="1" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#ll-grid)" />
@@ -63,8 +63,8 @@ export default function LoginLoader() {
             />
             <defs>
               <linearGradient id="ll-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#2563EB" />
-                <stop offset="100%" stopColor="#60A5FA" />
+                <stop offset="0%" stopColor="#4F46E5" />
+                <stop offset="100%" stopColor="#818CF8" />
               </linearGradient>
             </defs>
           </svg>
@@ -72,9 +72,9 @@ export default function LoginLoader() {
             style={{
               position: "absolute", inset: 10,
               borderRadius: "50%",
-              background: "linear-gradient(135deg,#2563EB,#3B82F6)",
+              background: "linear-gradient(135deg,#4F46E5,#6366F1)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 4px 20px rgba(37,99,235,0.3)",
+              boxShadow: "0 4px 20px rgba(79, 70, 229,0.3)",
             }}
           >
             <Brain className="w-8 h-8 text-white" style={{ animation: "im-float 2.5s ease-in-out infinite" }} />

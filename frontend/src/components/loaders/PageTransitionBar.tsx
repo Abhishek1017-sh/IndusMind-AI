@@ -51,13 +51,13 @@ export default function PageTransitionBar() {
       {/* Small pill indicator */}
       <div
         className="fixed top-4 left-1/2 -translate-x-1/2 z-[9997] flex items-center gap-2.5 px-4 py-2 bg-white border border-[#E2E8F0] rounded-full shadow-lg im-slide-down"
-        style={{ boxShadow: "0 4px 20px rgba(37,99,235,0.12)" }}
+        style={{ boxShadow: "0 4px 20px rgba(79, 70, 229,0.12)" }}
       >
         <div
           style={{
             width: 22, height: 22,
             borderRadius: "50%",
-            background: "linear-gradient(135deg,#2563EB,#3B82F6)",
+            background: "linear-gradient(135deg,#4F46E5,#6366F1)",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
           }}
@@ -71,7 +71,7 @@ export default function PageTransitionBar() {
               key={i}
               style={{
                 width: 4, height: 4, borderRadius: "50%",
-                background: "#2563EB",
+                background: "#4F46E5",
                 display: "inline-block",
                 animation: `im-dot-bounce 1.1s ease-in-out ${i * 0.18}s infinite`,
               }}

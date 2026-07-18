@@ -27,7 +27,7 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-indigo-600 to-indigo-500">
               <Settings className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">System Settings</h1>
@@ -54,7 +54,7 @@ export default function SettingsPage() {
               onClick={() => setActiveTab(t.id as any)}
               className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer border"
               style={activeTab === t.id
-                ? { background: "#FFFFFF", borderColor: "#E2E8F0", color: "#2563EB", boxShadow: "0 2px 4px rgba(15,23,42,0.05)" }
+                ? { background: "#FFFFFF", borderColor: "#E2E8F0", color: "#4F46E5", boxShadow: "0 2px 4px rgba(15,23,42,0.05)" }
                 : { background: "transparent", borderColor: "transparent", color: "#64748B" }
               }
             >
@@ -80,12 +80,12 @@ export default function SettingsPage() {
                   <div className="space-y-2">
                     <label className="flex justify-between text-xs font-bold text-[#64748B]">
                       <span>Primary AI LLM Model</span>
-                      <span className="text-blue-600 font-extrabold">{modelType}</span>
+                      <span className="text-indigo-600 font-extrabold">{modelType}</span>
                     </label>
                     <select
                       value={modelType}
                       onChange={e => setModelType(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] bg-white rounded-xl outline-none focus:border-blue-500"
+                      className="w-full px-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] bg-white rounded-xl outline-none focus:border-indigo-500"
                     >
                       <option value="gemini-pro-1.5">Gemini 2.5 Flash (Default)</option>
                       <option value="gemini-ultra-1.0">Gemini 2.5 Pro (Deep Reasoning)</option>
@@ -96,7 +96,7 @@ export default function SettingsPage() {
                   <div className="space-y-2">
                     <label className="flex justify-between text-xs font-bold text-[#64748B]">
                       <span>Temperature (Creativity vs. Precision)</span>
-                      <span className="text-blue-600 font-extrabold">{temperature}</span>
+                      <span className="text-indigo-600 font-extrabold">{temperature}</span>
                     </label>
                     <input
                       type="range"
@@ -105,7 +105,7 @@ export default function SettingsPage() {
                       step="0.1"
                       value={temperature}
                       onChange={e => setTemperature(parseFloat(e.target.value))}
-                      className="w-full h-1.5 bg-[#F1F5F9] rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      className="w-full h-1.5 bg-[#F1F5F9] rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                     <div className="flex justify-between text-[9px] text-[#94A3B8] font-bold uppercase">
                       <span>Strict Grounded Facts (0.0)</span>
@@ -116,7 +116,7 @@ export default function SettingsPage() {
                   <div className="space-y-2">
                     <label className="flex justify-between text-xs font-bold text-[#64748B]">
                       <span>RAG Token Chunk Size</span>
-                      <span className="text-blue-600 font-extrabold">{chunkSize} tokens</span>
+                      <span className="text-indigo-600 font-extrabold">{chunkSize} tokens</span>
                     </label>
                     <select
                       value={chunkSize}
@@ -131,7 +131,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="border-t border-[#E2E8F0] pt-4 flex justify-end">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-sm">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-sm">
                     <Save className="w-4 h-4" /> Save Configuration
                   </button>
                 </div>
@@ -151,7 +151,7 @@ export default function SettingsPage() {
                     <div key={src.name} className="flex items-center justify-between p-3.5 border border-[#E2E8F0] rounded-xl hover:bg-[#F8FAFC] transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#F1F5F9]">
-                          <Database className="w-4 h-4 text-blue-600" />
+                          <Database className="w-4 h-4 text-indigo-600" />
                         </div>
                         <div>
                           <p className="text-xs font-bold text-[#0F172A]">{src.name}</p>
@@ -184,7 +184,7 @@ export default function SettingsPage() {
                     <div key={r.role} className="p-4 border border-[#E2E8F0] rounded-xl space-y-1 hover:bg-[#F8FAFC] transition-colors cursor-pointer">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-[#0F172A]">{r.role}</span>
-                        <input type="checkbox" defaultChecked className="w-4 h-4 border-[#E2E8F0] text-blue-600 rounded" />
+                        <input type="checkbox" defaultChecked className="w-4 h-4 border-[#E2E8F0] text-indigo-600 rounded" />
                       </div>
                       <p className="text-[11px] text-[#64748B] font-semibold leading-relaxed">{r.scope}</p>
                     </div>

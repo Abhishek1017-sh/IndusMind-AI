@@ -2,26 +2,26 @@
 
 @layer base {
   :root {
-    --background: 60 10% 97.6%;         /* #FAFAF8 */
+    --background: 222 40% 97.5%;        /* #F4F6FB — cool analytics canvas */
     --foreground: 222 47% 11%;          /* #0F172A */
     --card: 0 0% 100%;                  /* #FFFFFF */
     --card-foreground: 222 47% 11%;     /* #0F172A */
     --popover: 0 0% 100%;               /* #FFFFFF */
     --popover-foreground: 222 47% 11%;  /* #0F172A */
-    --primary: 221.2 83.2% 53.3%;       /* #2563EB */
+    --primary: 243 75% 58.6%;           /* #4F46E5 — indigo-600 */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;         /* #F1F5F9 */
     --secondary-foreground: 222 47% 11%;
     --muted: 215.4 16.3% 56.9%;         /* #64748B */
     --muted-foreground: 217.9 10.6% 64.9%; /* #94A3B8 */
-    --accent: 187.9 92.1% 42.4%;        /* #06B6D4 */
+    --accent: 239 84% 67%;              /* #6366F1 — indigo-500 */
     --accent-foreground: 210 40% 98%;
     --destructive: 0 72.2% 50.6%;       /* #DC2626 */
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;        /* #E2E8F0 */
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;                  /* 12px rounded corners */
+    --ring: 243 75% 58.6%;              /* #4F46E5 */
+    --radius: 0.875rem;                 /* 14px — premium rounded corners */
   }
 }
 
@@ -50,11 +50,73 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
+/* ============================================================
+   ENTERPRISE DESIGN SYSTEM — tokens
+   Palantir/Stripe/Linear register: cool neutrals, one brand hue,
+   semantic status colors, tight radii, low-alpha layered shadows.
+   No gradients, no glass, no glow. Consumed via Tailwind utilities
+   (e.g. `text-ink-secondary`, `bg-surface`, `shadow-e2`, `rounded-e-lg`).
+   ============================================================ */
+@theme {
+  /* ── Neutrals (cool slate ramp) — the backbone of the UI ───── */
+  --color-canvas: #f6f8fb;   /* app background            */
+  --color-surface: #ffffff;  /* cards, panels             */
+  --color-subtle: #f1f4f9;   /* inset rows, hover fills   */
+  --color-line: #e4e9f0;     /* default borders           */
+  --color-line-strong: #cfd7e3;
+
+  --color-ink: #0b1220;            /* primary text   */
+  --color-ink-secondary: #5b6779;  /* secondary text */
+  --color-ink-tertiary: #8794a7;   /* muted/labels   */
+
+  /* ── Brand (single hue, used sparingly for action + focus) ── */
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+  --color-brand-subtle: #eef2ff;
+  --color-brand-line: #c7d2fe;
+
+  /* ── Semantic status (meaning only — never decoration) ────── */
+  --color-success: #047857;
+  --color-success-subtle: #ecfdf5;
+  --color-warning: #b45309;
+  --color-warning-subtle: #fffbeb;
+  --color-danger: #b42318;
+  --color-danger-subtle: #fef3f2;
+  --color-info: #175cd3;
+  --color-info-subtle: #eff8ff;
+
+  /* ── Radius — tighter than consumer UI reads as "enterprise".
+     NOTE: prefixed `ui-` on purpose. A `-e-` prefix would collide with
+     Tailwind's built-in logical utilities (`rounded-e-lg` = inline-end
+     corners only), silently rounding just one side of every card. ── */
+  --radius-ui-sm: 4px;
+  --radius-ui-md: 6px;
+  --radius-ui-lg: 8px;
+  --radius-ui-xl: 12px;
+
+  /* ── Elevation — low-alpha, two-layer, never glowy ────────── */
+  --shadow-e1: 0 1px 2px rgba(11, 18, 32, 0.05);
+  --shadow-e2: 0 1px 3px rgba(11, 18, 32, 0.08), 0 1px 2px rgba(11, 18, 32, 0.04);
+  --shadow-e3: 0 4px 8px -2px rgba(11, 18, 32, 0.08), 0 2px 4px -2px rgba(11, 18, 32, 0.04);
+  --shadow-e4: 0 12px 16px -4px rgba(11, 18, 32, 0.08), 0 4px 6px -2px rgba(11, 18, 32, 0.03);
+
+  /* ── Motion — shared with Framer Motion variants ──────────── */
+  --ease-enterprise: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 body {
-  background-color: #FAFAF8;
+  background-color: #F4F6FB;
+  /* Subtle cool wash so the canvas reads as a premium analytics surface,
+     not a flat gray. Fixed so it doesn't scroll with content. */
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgba(79, 70, 229, 0.05), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, rgba(99, 102, 241, 0.04), transparent 60%);
+  background-attachment: fixed;
   color: hsl(var(--foreground));
   font-family: var(--font-sans), sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* ============================================================
@@ -67,21 +129,42 @@ body {
 }
 .glass-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.03), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
+  border: 1px solid #e8ecf4;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px -8px rgba(30, 41, 59, 0.08);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .glass-card-hover:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.05), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+  border-color: #c7cdf7;
+  box-shadow: 0 10px 24px -6px rgba(79, 70, 229, 0.12), 0 4px 8px -4px rgba(15, 23, 42, 0.05);
   transform: translateY(-1px);
 }
+
+/* ============================================================
+   DIALOG (Radix) — driven by data-state so exit animations run
+   before unmount. Replaces tailwindcss-animate, which isn't installed.
+   ============================================================ */
+@keyframes ui-overlay-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes ui-overlay-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes ui-content-in {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.96) }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1) }
+}
+@keyframes ui-content-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1) }
+  to   { opacity: 0; transform: translate(-50%, -48%) scale(0.96) }
+}
+.ui-dialog-overlay[data-state="open"]  { animation: ui-overlay-in 0.18s cubic-bezier(0.22,1,0.36,1); }
+.ui-dialog-overlay[data-state="closed"]{ animation: ui-overlay-out 0.15s cubic-bezier(0.22,1,0.36,1); }
+/* translate is owned by the keyframes, so the element stays centred mid-animation */
+.ui-dialog-content { transform: translate(-50%, -50%); }
+.ui-dialog-content[data-state="open"]  { animation: ui-content-in 0.2s cubic-bezier(0.22,1,0.36,1); }
+.ui-dialog-content[data-state="closed"]{ animation: ui-content-out 0.15s cubic-bezier(0.22,1,0.36,1); }
 
 /* ============================================================
    SCROLLBARS
    ============================================================ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #FAFAF8; }
+::-webkit-scrollbar-track { background: #F4F6FB; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
@@ -92,7 +175,7 @@ body {
 .react-flow__pane,
 .react-flow__background,
 .react-flow__renderer {
-  background-color: #FAFAF8 !important;
+  background-color: #F4F6FB !important;
 }
 .react-flow__node { border-radius: 14px !important; }
 .react-flow__controls-button {
@@ -144,8 +227,8 @@ body {
 
 /* Subtle pulse-glow for logo/icon */
 @keyframes im-pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.25); }
-  50%       { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.25); }
+  50%       { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
 }
 
 /* Rotating ring */
@@ -249,7 +332,7 @@ body {
   top: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, #2563EB, #60A5FA, #2563EB);
+  background: linear-gradient(90deg, #4F46E5, #818CF8, #4F46E5);
   background-size: 200% 100%;
   animation: im-bar-sweep 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   z-index: 9999;
@@ -285,7 +368,7 @@ body {
   position: absolute;
   width: 650px;
   height: 650px;
-  background: radial-gradient(circle, #3B82F6 0%, transparent 70%);
+  background: radial-gradient(circle, #6366F1 0%, transparent 70%);
   filter: blur(90px);
   opacity: 0.04;
   animation: rotate-mesh 28s infinite alternate ease-in-out;
@@ -333,13 +416,13 @@ body {
    ============================================================ */
 @keyframes node-pulse-glow {
   0% {
-    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.2);
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.2);
   }
   70% {
-    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+    box-shadow: 0 0 0 6px rgba(79, 70, 229, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
   }
 }
 .node-pulse-active {
@@ -354,16 +437,16 @@ body {
 }
 .actionable-card:hover {
   transform: translateY(-4px) !important;
-  box-shadow: 0 12px 20px -8px rgba(37, 99, 235, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.04) !important;
-  border-color: rgba(37, 99, 235, 0.2) !important;
+  box-shadow: 0 12px 20px -8px rgba(79, 70, 229, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.04) !important;
+  border-color: rgba(79, 70, 229, 0.2) !important;
 }
 
 .custom-input {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .custom-input:focus {
-  border-color: #2563EB !important;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1) !important;
+  border-color: #4F46E5 !important;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1) !important;
 }
 
 /* ============================================================
@@ -382,8 +465,8 @@ body {
   105% { transform: rotate(360deg); }
 }
 .radar-grid {
-  background-image: radial-gradient(circle, rgba(37,99,235,0.015) 0%, transparent 80%),
-                    repeating-radial-gradient(circle, rgba(37,99,235,0.01) 0px, rgba(37,99,235,0.01) 30px, transparent 30px, transparent 60px);
+  background-image: radial-gradient(circle, rgba(79, 70, 229,0.015) 0%, transparent 80%),
+                    repeating-radial-gradient(circle, rgba(79, 70, 229,0.01) 0px, rgba(79, 70, 229,0.01) 30px, transparent 30px, transparent 60px);
   animation: radar-sweep 50s linear infinite;
   will-change: transform;
 }
@@ -392,7 +475,7 @@ body {
    CYBER CARD HOVER GRID & SHIMMER CTA
    ============================================================ */
 .cyber-card-grid {
-  background-image: radial-gradient(rgba(37, 99, 235, 0.04) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(79, 70, 229, 0.04) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 

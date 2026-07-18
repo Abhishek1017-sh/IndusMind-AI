@@ -1,196 +1,492 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  fetchComplianceOverview, generateReport, getReportDownloadUrl,
-  type ComplianceOverview,
-} from "@/lib/api";
-import {
-  ShieldCheck, Loader2, CheckCircle2, XCircle, Download, AlertTriangle,
-  ShieldAlert, FileWarning, RefreshCw, FileText,
+  AlertTriangle, CheckCircle2, Download, FileText, FileWarning, Info,
+  RefreshCw, ShieldAlert, ShieldCheck, XCircle,
 } from "lucide-react";
-import ComplianceLoader from "@/components/loaders/ComplianceLoader";
 
-const RISK_COLORS: Record<string, string> = {
-  Low: "#16A34A", Medium: "#F59E0B", High: "#F97316", Critical: "#DC2626", Unknown: "#64748B",
+import {
+  downloadReportFile, fetchComplianceOverview, generateComplianceAudit,
+  type ComplianceFinding, type ComplianceOverview, type ComplianceTimelineEvent,
+  type DetectedRegulation, type ModuleReadiness,
+} from "@/lib/api";
+import PageTransition from "@/components/motion/PageTransition";
+import { EASE, staggerContainer, staggerItem } from "@/components/motion/variants";
+import {
+  Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState,
+  Skeleton, type Tone,
+} from "@/components/ui";
+import { cn } from "@/lib/utils";
+
+/* Compliance is assessed ONLY against standards the uploaded documents actually
+   reference. When nothing qualifies, this page explains exactly why and what to
+   upload — it never invents a score, a finding, or a passed check. */
+
+const SEVERITY_TONE: Record<string, Tone> = {
+  Critical: "danger", High: "danger", Medium: "warning", Low: "info",
+};
+const FINDING_TONE: Record<ComplianceFinding["type"], Tone> = {
+  overdue: "danger", missing_evidence: "warning", compliant: "success",
+};
+const BAND_TONE: Record<string, Tone> = {
+  Strong: "success", Partial: "warning", Weak: "warning", Insufficient: "neutral",
+};
+function scoreTone(score: number, hasData: boolean): Tone {
+  if (!hasData) return "neutral";
+  if (score >= 90) return "success";
+  if (score >= 70) return "warning";
+  return "danger";
+}
+const TONE_HEX: Record<Tone, string> = {
+  neutral: "#8794a7", success: "#047857", warning: "#b45309",
+  danger: "#b42318", info: "#175cd3", brand: "#4f46e5",
 };
 
 export default function CompliancePage() {
   const [overview, setOverview] = useState<ComplianceOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    fetchComplianceOverview()
-      .then(setOverview)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const refresh = useCallback(() => { setLoading(true); setReloadKey((k) => k + 1); }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let alive = true;
+    (async () => {
+      try {
+        const data = await fetchComplianceOverview();
+        if (!alive) return;
+        setOverview(data); setError(null);
+      } catch {
+        if (alive) setError("Couldn't reach the compliance service.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [reloadKey]);
 
   const downloadReport = async () => {
     setGenerating(true);
     try {
-      const r = await generateReport("Compliance Audit", "COMPLIANCE");
-      window.open(getReportDownloadUrl(r.id), "_blank");
+      const r = await generateComplianceAudit();
+      await downloadReportFile(r.id, "compliance-audit-report.pdf");
     } catch (e) { console.error(e); }
     finally { setGenerating(false); }
   };
 
-  const score = overview?.compliance_score ?? 0;
-  const scoreColor = !overview?.has_data ? "#64748B" : score >= 90 ? "#16A34A" : score >= 70 ? "#F59E0B" : "#DC2626";
-  const riskColor = RISK_COLORS[overview?.risk_level ?? "Unknown"];
+  const hasData = !!overview?.has_data;
 
   return (
-    <div className="p-6 md:p-8 space-y-6 bg-[#FAFAF8]">
+    <PageTransition className="space-y-4 p-5 md:p-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
-              <ShieldCheck className="w-4 h-4 text-white" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">Compliance Intelligence</h1>
-          </div>
-          <p className="text-xs text-[#64748B] font-semibold ml-11">
-            Realtime compliance assessment evaluated against Factory Acts, OISD standards, PESO, and ISO directives.
+          <h1 className="text-xl font-bold tracking-tight text-ink">Compliance Intelligence</h1>
+          <p className="mt-0.5 max-w-2xl text-xs text-ink-secondary">
+            Assessed only against standards your uploaded documents actually reference — every finding cites its source.
           </p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] hover:bg-[#F1F5F9] rounded-xl text-xs font-bold text-[#0F172A] bg-white transition-all cursor-pointer">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh Audit
-        </button>
+        <div className="flex items-center gap-2">
+          <Button variant="primary" size="sm" onClick={downloadReport} loading={generating}>
+            <Download className="h-3.5 w-3.5" /> Audit report
+          </Button>
+          <Button size="sm" onClick={refresh} disabled={loading}>
+            <RefreshCw className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} /> Refresh
+          </Button>
+        </div>
       </div>
 
       {loading ? (
-        <ComplianceLoader />
-      ) : !overview?.has_data ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-10 text-center shadow-sm">
-          <FileWarning className="w-8 h-8 mx-auto mb-3 text-[#94A3B8]" />
-          <p className="text-xs font-bold text-[#64748B]">No Compliance Data Indexed</p>
-          <p className="text-xs text-[#94A3B8] mt-1">{overview?.message}</p>
-          {overview && overview.missing_documents.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2 justify-center">
-              {overview.missing_documents.map(m => (
-                <span key={m} className="px-3 py-1 rounded-full text-xs text-[#64748B] font-semibold border bg-white border-[#E2E8F0]">{m}</span>
-              ))}
-            </div>
-          )}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div className="space-y-4 xl:col-span-2">
+            <Skeleton className="h-32 w-full" /><Skeleton className="h-48 w-full" />
+          </div>
+          <Skeleton className="h-64 w-full" />
         </div>
+      ) : error ? (
+        <Card className="border-warning/30 bg-warning-subtle">
+          <CardContent className="flex items-center gap-2.5 py-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+            <p className="text-xs font-medium text-warning">
+              {error} Compliance status is unknown — this is not a passing or failing result.
+            </p>
+            <Button size="sm" variant="secondary" className="ml-auto" onClick={refresh}>Retry</Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Left: main results */}
-          <div className="xl:col-span-2 space-y-6">
-            
-            {/* Score + risk card */}
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center gap-6 flex-wrap">
-                <div className="relative flex-shrink-0">
-                  <svg width="90" height="90" viewBox="0 0 90 90">
-                    <circle cx="45" cy="45" r="38" fill="none" stroke="#F1F5F9" strokeWidth="8" />
-                    <circle cx="45" cy="45" r="38" fill="none" stroke={scoreColor} strokeWidth="8"
-                      strokeDasharray={`${score * 2.389} 238.9`} strokeLinecap="round" transform="rotate(-90 45 45)" />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xl font-extrabold" style={{ color: scoreColor }}>{score}%</span>
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-lg font-extrabold text-[#0F172A]">Compliance Rating</h2>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1" style={{ background: `${riskColor}10`, color: riskColor, border: `1px solid ${riskColor}30` }}>
-                      <ShieldAlert className="w-3.5 h-3.5" /> {overview.risk_level} Risk
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#64748B] font-semibold mb-3">{overview.summary}</p>
-                  <div className="flex gap-4 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-xs text-[#16A34A] font-bold"><CheckCircle2 className="w-3.5 h-3.5" />{overview.passed_checks} Audits Passed</span>
-                    <span className="flex items-center gap-1.5 text-xs text-[#DC2626] font-bold"><XCircle className="w-3.5 h-3.5" />{overview.failed_checks} Deviations Detected</span>
-                  </div>
-                </div>
-                <button onClick={downloadReport} disabled={generating}
-                  className="ml-auto flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] hover:bg-[#F1F5F9] text-[#0F172A] rounded-xl text-xs font-bold bg-white transition-all cursor-pointer">
-                  {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                  Export Audit PDF
-                </button>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          {/* Main column */}
+          <div className="space-y-4 xl:col-span-2">
+            <ReadinessPanel readiness={overview?.readiness} hasData={hasData} score={overview?.compliance_score ?? 0} />
 
-            {/* Checklist */}
-            {overview.checklist.length > 0 && (
-              <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-5 py-4 border-b border-[#E2E8F0]">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0F172A]">Audited Checklist</h2>
-                </div>
-                <div className="divide-y divide-[#E2E8F0]">
-                  {overview.checklist.map((item, i) => (
-                    <div key={i} className="flex items-center gap-4 px-5 py-4 hover:bg-[#F8FAFC] transition-colors">
-                      {item.status === "COMPLIANT" ? <CheckCircle2 className="w-4 h-4 text-[#16A34A] flex-shrink-0" /> : <XCircle className="w-4 h-4 text-[#DC2626] flex-shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-[#0F172A]">{item.parameter}</p>
-                        {item.deviation && item.deviation !== "None" && <p className="text-[10px] text-[#DC2626] font-bold mt-0.5">{item.deviation}</p>}
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[10px] text-[#94A3B8] font-bold uppercase">Limit: <span className="text-[#64748B]">{item.sop_limit}</span></p>
-                        <p className="text-xs font-bold" style={{ color: item.status === "COMPLIANT" ? "#16A34A" : "#DC2626" }}>Actual: {item.inspected_value}</p>
+            {hasData && (
+              <ScoreCard
+                score={overview!.compliance_score}
+                risk={overview!.risk_level}
+                summary={overview!.summary}
+                passed={overview!.passed_checks}
+                failed={overview!.failed_checks}
+              />
+            )}
+
+            <FindingsPanel findings={(hasData ? overview?.findings : overview?.violations) ?? []} />
+
+            {hasData && !!overview?.checklist.length && (
+              <Card>
+                <CardHeader><CardTitle>Audited checklist</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <ul className="divide-y divide-line">
+                    {overview.checklist.map((item, i) => {
+                      const ok = item.status === "COMPLIANT";
+                      return (
+                        <li key={i} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-subtle">
+                          {ok
+                            ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                            : <XCircle className="h-4 w-4 shrink-0 text-danger" />}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-ink">{item.parameter}</p>
+                            {item.deviation && item.deviation !== "None" && (
+                              <p className="mt-0.5 text-[11px] font-semibold text-danger">{item.deviation}</p>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-[10px] font-bold uppercase text-ink-tertiary">
+                              Limit: <span className="text-ink-secondary">{item.sop_limit}</span>
+                            </p>
+                            <p className={cn("text-xs font-bold", ok ? "text-success" : "text-danger")}>
+                              Actual: {item.inspected_value}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Why not active — the honest explanation, never a blank screen */}
+            {!hasData && (
+              <Card>
+                <CardHeader><CardTitle>Why compliance isn&apos;t active yet</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-[13px] leading-relaxed text-ink-secondary">
+                    {overview?.message ??
+                      "No compliance-related documents were detected among your uploads, so there is nothing to assess."}
+                  </p>
+                  {!!overview?.missing_documents.length && (
+                    <div>
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">
+                        Upload any of these to enable compliance analysis
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {overview.missing_documents.map((m) => (
+                          <span key={m} className="rounded-ui-md border border-brand-line bg-brand-subtle px-2 py-0.5 text-[11px] font-semibold text-brand">
+                            {m}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
 
-          {/* Right column */}
+          {/* Side column */}
           <div className="space-y-4">
-            {overview.corrective_actions.length > 0 && (
-              <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm space-y-3">
-                <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-2">
-                  <AlertTriangle className="w-4 h-4 text-[#F59E0B]" />
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0F172A]">AI Corrective Actions</h2>
-                </div>
-                <div className="space-y-2">
-                  {overview.corrective_actions.map((action, i) => (
-                    <div key={i} className="flex gap-2.5 p-3 rounded-lg border border-amber-100" style={{ background: "rgba(245,158,11,0.03)" }}>
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-amber-700 bg-amber-100 flex-shrink-0" style={{ minWidth: "20px" }}>{i + 1}</span>
-                      <p className="text-xs text-slate-700 leading-relaxed font-semibold">{action}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <RegulationsPanel regs={overview?.applicable_regulations} />
+            {hasData && <TimelinePanel events={overview?.timeline ?? []} />}
+
+            {hasData && !!overview?.corrective_actions.length && (
+              <Card>
+                <CardHeader><CardTitle>Corrective actions</CardTitle></CardHeader>
+                <CardContent>
+                  <ol className="space-y-2">
+                    {overview.corrective_actions.map((a, i) => (
+                      <li key={i} className="flex gap-2.5">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warning-subtle text-[9px] font-bold text-warning">
+                          {i + 1}
+                        </span>
+                        <p className="text-xs leading-relaxed text-ink-secondary">{a}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
             )}
 
-            {/* Detected compliance files */}
-            <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-blue-600" /> Evidence Audit Base</p>
-              <div className="space-y-2">
-                {overview.detected_documents.map(d => (
-                  <div key={d.id} className="p-2.5 rounded-lg border border-blue-100" style={{ background: "rgba(37,99,235,0.04)" }}>
-                    <p className="text-xs font-bold text-blue-700 truncate hover:underline cursor-pointer">{d.filename}</p>
-                    <p className="text-[9px] text-[#64748B] font-semibold mt-0.5">{d.category}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {!!overview?.detected_documents.length && (
+              <Card>
+                <CardHeader><CardTitle>Evidence base</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <ul className="divide-y divide-line">
+                    {overview.detected_documents.map((d) => (
+                      <li key={d.id} className="flex items-center gap-2 px-4 py-2">
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-ink" title={d.filename}>{d.filename}</p>
+                          {d.category && <p className="text-[10px] text-ink-tertiary">{d.category}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Missing document warnings */}
-            {overview.missing_documents.length > 0 && (
-              <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5"><FileWarning className="w-3.5 h-3.5 text-amber-600" /> Missing Audit Items</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {overview.missing_documents.map(m => (
-                    <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-200 text-amber-700 bg-amber-50">{m}</span>
-                  ))}
-                </div>
-                <p className="text-[10px] text-[#94A3B8] font-semibold mt-1">Uploading these certificates would stabilize compliance ratings.</p>
-              </div>
+            {hasData && !!overview?.missing_documents.length && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-1.5">
+                    <FileWarning className="h-3.5 w-3.5 text-warning" /> Gaps
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {overview.missing_documents.map((m) => (
+                      <Badge key={m} tone="warning">{m}</Badge>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-ink-tertiary">
+                    These document types were not found. Their absence limits what can be verified.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
       )}
-    </div>
+    </PageTransition>
+  );
+}
+
+// ── Readiness ───────────────────────────────────────────────────────────────
+function ReadinessPanel({
+  readiness, hasData, score,
+}: { readiness?: ModuleReadiness; hasData: boolean; score: number }) {
+  const pct = Math.round((readiness?.score ?? 0) * 100);
+  const tone = BAND_TONE[readiness?.band ?? "Insufficient"] ?? "neutral";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Compliance readiness</CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold tabular-nums text-ink">{pct}%</span>
+          <Badge tone={tone}>{readiness?.band ?? "Insufficient"}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-subtle">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.6, ease: EASE }}
+            className={cn("h-full", readiness?.active ? "bg-brand" : "bg-line-strong")}
+          />
+        </div>
+        <p className="text-[13px] leading-relaxed text-ink-secondary">
+          {readiness?.reason ??
+            (hasData
+              ? "Compliance is active for the standards found in your documents."
+              : "Uploaded documents are operational records — no SOPs, audits, inspections or regulations detected.")}
+        </p>
+        {!hasData && readiness?.enable_hint && (
+          <p className="flex items-start gap-1.5 text-xs font-semibold text-brand">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {readiness.enable_hint}
+          </p>
+        )}
+        {!!readiness?.evidence?.length && (
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {readiness.evidence.slice(0, 4).map((e, i) => (
+              <Badge key={i} tone="neutral">{e}</Badge>
+            ))}
+          </div>
+        )}
+        {hasData && (
+          <p className="text-[11px] text-ink-tertiary">Overall compliance rating: {score}%</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Score ring ──────────────────────────────────────────────────────────────
+function ScoreCard({
+  score, risk, summary, passed, failed,
+}: { score: number; risk: string; summary: string; passed: number; failed: number }) {
+  const tone = scoreTone(score, true);
+  const color = TONE_HEX[tone];
+  const r = 38;
+  const circ = 2 * Math.PI * r;
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center gap-5">
+        <div className="relative h-24 w-24 shrink-0">
+          <svg viewBox="0 0 90 90" className="h-full w-full -rotate-90">
+            <circle cx="45" cy="45" r={r} fill="none" stroke="var(--color-subtle)" strokeWidth="8" />
+            <motion.circle
+              cx="45" cy="45" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={circ}
+              initial={{ strokeDashoffset: circ }}
+              animate={{ strokeDashoffset: circ * (1 - score / 100) }}
+              transition={{ duration: 0.9, ease: EASE }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-xl font-bold tabular-nums" style={{ color }}>{score}%</span>
+          </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center gap-2">
+            <h2 className="text-sm font-bold text-ink">Compliance rating</h2>
+            <Badge tone={tone}><ShieldAlert className="h-3 w-3" /> {risk} risk</Badge>
+          </div>
+          <p className="mb-2 text-xs leading-relaxed text-ink-secondary">{summary}</p>
+          <div className="flex flex-wrap gap-3">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" />{passed} passed
+            </span>
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-danger">
+              <XCircle className="h-3.5 w-3.5" />{failed} deviations
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Findings (cross-document validation — the differentiator) ───────────────
+function FindingsPanel({ findings }: { findings: ComplianceFinding[] }) {
+  if (!findings.length) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Cross-document findings</CardTitle>
+        <span className="text-[11px] text-ink-tertiary">{findings.length}</span>
+      </CardHeader>
+      <CardContent className="p-0">
+        <motion.ul variants={staggerContainer} initial="hidden" animate="show" className="divide-y divide-line">
+          {findings.map((f, i) => {
+            const tone = SEVERITY_TONE[f.severity] ?? FINDING_TONE[f.type] ?? "neutral";
+            return (
+              <motion.li key={i} variants={staggerItem} className="space-y-2 px-5 py-3.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={tone}>{f.severity || f.type}</Badge>
+                  <p className="text-[13px] font-bold text-ink">{f.title}</p>
+                  {f.cross_document && <Badge tone="brand">Cross-doc</Badge>}
+                  {f.overdue_days != null && f.overdue_days > 0 && (
+                    <Badge tone="danger">{f.overdue_days}d overdue</Badge>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed text-ink-secondary">{f.description}</p>
+
+                {!!f.evidence?.length && (
+                  <div className="space-y-1">
+                    {f.evidence.map((e, j) => (
+                      <div key={j} className="rounded-ui-md border border-line bg-subtle px-2.5 py-1.5">
+                        <p className="flex items-center gap-1 text-[10px] font-bold text-ink-tertiary">
+                          <FileText className="h-2.5 w-2.5" /> {e.source_document}
+                          {e.role ? ` · ${e.role}` : ""}
+                        </p>
+                        <p className="mt-0.5 text-[11px] italic leading-relaxed text-ink-secondary">
+                          &ldquo;{e.snippet}&rdquo;
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {f.recommendation && (
+                  <p className="flex items-start gap-1.5 text-xs text-ink-secondary">
+                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                    {f.recommendation}
+                  </p>
+                )}
+              </motion.li>
+            );
+          })}
+        </motion.ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Regulations ─────────────────────────────────────────────────────────────
+function RegulationsPanel({ regs }: { regs?: DetectedRegulation[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Applicable regulations</CardTitle>
+        {!!regs?.length && <span className="text-[11px] text-ink-tertiary">{regs.length}</span>}
+      </CardHeader>
+      {!regs?.length ? (
+        <EmptyState
+          title="No standards detected"
+          reason="None of your uploaded documents reference a recognised standard, so no regulation can be assessed."
+        />
+      ) : (
+        <CardContent className="p-0">
+          <ul className="divide-y divide-line">
+            {regs.map((r) => (
+              <li key={r.code} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-xs font-bold text-ink" title={r.name}>{r.name}</p>
+                  <span className="shrink-0 text-[10px] font-bold text-ink-tertiary">
+                    {Math.round(r.confidence * 100)}%
+                  </span>
+                </div>
+                <p className="text-[10px] font-semibold text-ink-tertiary">{r.domain}</p>
+                {r.snippet && (
+                  <p className="mt-0.5 truncate text-[10px] italic text-ink-tertiary" title={r.snippet}>
+                    &ldquo;{r.snippet}&rdquo;
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// ── Timeline ────────────────────────────────────────────────────────────────
+function TimelinePanel({ events }: { events: ComplianceTimelineEvent[] }) {
+  if (!events.length) return null;
+  return (
+    <Card>
+      <CardHeader><CardTitle>Compliance timeline</CardTitle></CardHeader>
+      <CardContent>
+        <ol className="space-y-3">
+          {events.map((e, i) => {
+            const tone: Tone = e.status === "overdue" ? "danger" : "success";
+            return (
+              <li key={i} className="flex gap-2.5">
+                <div className="flex flex-col items-center">
+                  <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", tone === "danger" ? "bg-danger" : "bg-success")} />
+                  {i < events.length - 1 && <span className="mt-1 w-px flex-1 bg-line" />}
+                </div>
+                <div className="min-w-0 flex-1 pb-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="text-xs font-semibold text-ink">{e.event}</p>
+                    <Badge tone={tone}>{e.status}</Badge>
+                  </div>
+                  <p className="text-[11px] text-ink-tertiary">
+                    {e.date}
+                    {e.source_document ? ` · ${e.source_document}` : ""}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </CardContent>
+    </Card>
   );
 }

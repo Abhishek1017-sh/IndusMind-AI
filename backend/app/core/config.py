@@ -18,11 +18,6 @@ class Settings(BaseSettings):
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
 
-    # When DATABASE_URL points at PostgreSQL but it is unreachable at startup,
-    # the app fails loudly by default rather than silently switching to a local
-    # SQLite file (which would fork the data and break "Postgres is the single
-    # source of truth"). Set to True only for offline local development.
-    ALLOW_SQLITE_FALLBACK: bool = False
     
     # Gemini API Key
     GEMINI_API_KEY: str = ""

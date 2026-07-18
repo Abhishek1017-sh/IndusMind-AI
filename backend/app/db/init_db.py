@@ -27,6 +27,11 @@ def _apply_lightweight_migrations() -> None:
             logger.info("Migrating: adding documents.category column.")
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE documents ADD COLUMN category VARCHAR"))
+        if "intelligence" not in existing_columns:
+            logger.info("Migrating: adding documents.intelligence column.")
+            col_type = "JSONB" if engine.dialect.name == "postgresql" else "JSON"
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE documents ADD COLUMN intelligence {col_type}"))
 
     # reports.report_type moved from a native DB enum to a plain VARCHAR so
     # new report types (e.g. EXECUTIVE) don't need an ALTER TYPE migration.
@@ -34,13 +39,21 @@ def _apply_lightweight_migrations() -> None:
     # stores it as text so it needs nothing.
     if "reports" in table_names and engine.dialect.name == "postgresql":
         try:
-            report_type_col = next(
-                (c for c in inspector.get_columns("reports") if c["name"] == "report_type"), None
-            )
-            type_str = str(report_type_col["type"]).lower() if report_type_col else ""
-            if report_type_col is not None and "char" not in type_str and "text" not in type_str:
-                logger.info("Migrating: converting reports.report_type from native enum to VARCHAR.")
-                with engine.begin() as conn:
+            # SQLAlchemy's inspector reflects a native Postgres enum as VARCHAR(n),
+            # so it can't tell an enum column apart from a real varchar. Query
+            # information_schema instead: a native enum reports data_type
+            # 'USER-DEFINED', a real text column reports 'character varying'/'text'.
+            with engine.begin() as conn:
+                row = conn.execute(text(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_name = 'reports' AND column_name = 'report_type'"
+                )).fetchone()
+                data_type = (row[0] if row else "").lower()
+                if data_type and "char" not in data_type and "text" not in data_type:
+                    logger.info(
+                        "Migrating: converting reports.report_type (%s) from native enum to VARCHAR.",
+                        data_type,
+                    )
                     conn.execute(text(
                         "ALTER TABLE reports ALTER COLUMN report_type TYPE VARCHAR USING report_type::text"
                     ))

@@ -7,7 +7,7 @@ import pytest
 from app.services.entity_classifier import classify_entity
 from app.services.asset_taxonomy import (
     confidence_band, BAND_NEEDS_REVIEW, BAND_AUTO_APPROVED,
-    GROUP_ASSET, GROUP_EVENT, GROUP_PARTY, MAINTAINABLE_GROUPS,
+    GROUP_ASSET, GROUP_EVENT, MAINTAINABLE_GROUPS,
 )
 
 
@@ -21,7 +21,6 @@ from app.services.asset_taxonomy import (
     ("Entity", "Power Transformer T-9", {}, "Transformer", GROUP_ASSET),
     ("Location", "Boiler Room", {}, "Facility", None),  # group checked separately
     ("Failure", "Bearing failure", {}, "Failure", GROUP_EVENT),
-    ("Organization", "Acme Bearings Supplier", {}, "Vendor", GROUP_PARTY),
 ])
 def test_specific_asset_types(ntype, name, props, expected_type, expected_group):
     r = classify_entity(ntype, name, props)
@@ -44,9 +43,25 @@ def test_specific_asset_types(ntype, name, props, expected_type, expected_group)
     ("Entity", "Legal Contract Review"),
     ("Entity", "Customer Billing Account"),
     ("Organization", "NovaTech Manufacturing Pvt Ltd"),
+    # Companies (customers/competitors/suppliers) must NOT be maintenance assets,
+    # even if the extractor mistyped them as a Facility/Entity.
+    ("Organization", "Vanguard Logistics Global"),
+    ("Entity", "LogiTech Systems"),
+    ("Organization", "Apex Global Solutions"),
+    ("Facility", "Apex Global Solutions"),
+    ("Customer", "Acme Corp"),
+    ("Record", "Client Profile Refinement Record"),
+    ("Entity", "Strategic Upsell"),
+    ("Entity", "Competitor Activity"),
 ])
 def test_business_and_non_assets_excluded(ntype, name):
     assert classify_entity(ntype, name, {}) is None
+
+
+def test_org_name_with_strong_physical_signal_is_kept():
+    """A company-suffix name that also names a real facility is still an asset."""
+    r = classify_entity("Facility", "Global Processing Plant", {})
+    assert r is not None and r.asset_type == "Plant"
 
 
 def test_confidence_and_bands():

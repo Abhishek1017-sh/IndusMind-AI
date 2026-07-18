@@ -21,8 +21,8 @@ export default function ButtonLoader({
       disabled={disabled || loading}
       className={`relative flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-200 cursor-pointer disabled:opacity-60 overflow-hidden ${className}`}
       style={{
-        background: "linear-gradient(135deg, #2563EB, #3B82F6)",
-        boxShadow: "0 4px 12px rgba(37,99,235,0.2)",
+        background: "linear-gradient(135deg, #4F46E5, #6366F1)",
+        boxShadow: "0 4px 12px rgba(79, 70, 229,0.2)",
       }}
       {...props}
     >

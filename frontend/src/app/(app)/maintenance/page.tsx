@@ -1,178 +1,103 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  fetchMaintenanceOverview, fetchAssetDetail, generateReport, getReportDownloadUrl,
-  type MaintenanceOverview, type MaintenanceAsset, type AssetDetail, type Citation, type TimelineEvent,
-} from "@/lib/api";
-import {
-  Wrench, Loader2, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Clock,
-  AlertTriangle, Zap, RotateCcw, CheckCheck, Cpu, Package, MapPin, Server, Truck,
-  Sparkles, Boxes, RefreshCw, Search, Network, Building2, ShieldAlert, Gauge,
-  Activity, AlertOctagon, TriangleAlert, CircleGauge,
+  Activity, AlertOctagon, AlertTriangle, Boxes, Clock, Cpu, Download, FileText,
+  Gauge, MapPin, Package, RefreshCw, Search, Server, ShieldAlert,
+  ShieldCheck, Truck, Wrench, Zap,
 } from "lucide-react";
-import MaintenanceLoader from "@/components/loaders/MaintenanceLoader";
-import RcaLoader from "@/components/loaders/RcaLoader";
 
-// ─── Asset-type presentation (icon per specific taxonomy type) ───────────────
-const TYPE_META: Record<string, { Icon: React.ElementType; color: string }> = {
-  Pump: { Icon: Cpu, color: "#3b82f6" }, Motor: { Icon: Cpu, color: "#3b82f6" },
-  Compressor: { Icon: Cpu, color: "#3b82f6" }, Turbine: { Icon: Cpu, color: "#3b82f6" },
-  Generator: { Icon: Zap, color: "#3b82f6" }, Transformer: { Icon: Zap, color: "#3b82f6" },
-  Valve: { Icon: Gauge, color: "#06b6d4" }, Conveyor: { Icon: Activity, color: "#06b6d4" },
-  Machine: { Icon: Cpu, color: "#3b82f6" }, Equipment: { Icon: Gauge, color: "#06b6d4" },
-  Sensor: { Icon: CircleGauge, color: "#06b6d4" }, PLC: { Icon: Cpu, color: "#8b5cf6" },
-  Tool: { Icon: Wrench, color: "#06b6d4" },
-  Server: { Icon: Server, color: "#8b5cf6" }, Database: { Icon: Server, color: "#8b5cf6" },
-  "Storage Cluster": { Icon: Server, color: "#8b5cf6" }, "Network Device": { Icon: Network, color: "#8b5cf6" },
-  Vehicle: { Icon: Truck, color: "#eab308" },
-  Facility: { Icon: Building2, color: "#14b8a6" }, Plant: { Icon: Building2, color: "#14b8a6" },
-  "Production Line": { Icon: Activity, color: "#14b8a6" },
-  "Spare Part": { Icon: Package, color: "#f97316" }, Vendor: { Icon: MapPin, color: "#a855f7" },
-};
-const typeMeta = (t: string) => TYPE_META[t] ?? { Icon: Boxes, color: "#64748b" };
+import {
+  downloadReportFile, fetchAssetDetail, fetchMaintenanceOverview, generateReport,
+  type AssetDetail, type MaintenanceAsset, type MaintenanceOverview,
+} from "@/lib/api";
+import PageTransition from "@/components/motion/PageTransition";
+import { staggerContainer, staggerItem } from "@/components/motion/variants";
+import {
+  Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState,
+  KpiTile, Skeleton, SkeletonKpi, StatusDot, type Tone,
+} from "@/components/ui";
+import { cn } from "@/lib/utils";
 
-// ─── Risk colour coding (green / yellow / orange / red) ──────────────────────
-const RISK_COLOR: Record<string, string> = {
-  Low: "#10b981", Medium: "#eab308", High: "#f97316", Critical: "#ef4444",
-};
-const riskColor = (r?: string) => RISK_COLOR[r ?? "Low"] ?? "#64748b";
+/* Grounded: assets, risk levels, incidents and RCA all come from the backend
+   asset store + evidence-gated RCA. There is no fabricated "failure
+   probability" — the platform reports the real risk_level and incident counts,
+   and states plainly when an asset has no maintenance evidence. */
 
-const CRITICALITY_COLOR: Record<string, string> = {
-  Critical: "#DC2626", High: "#F97316", Medium: "#F59E0B", Low: "#16A34A",
+const TYPE_ICON: Record<string, React.ElementType> = {
+  Pump: Cpu, Motor: Cpu, Compressor: Cpu, Turbine: Cpu, Machine: Cpu, Equipment: Gauge,
+  Generator: Zap, Transformer: Zap, Valve: Gauge, Conveyor: Activity, Sensor: Gauge,
+  PLC: Cpu, Tool: Wrench, Server: Server, Database: Server, Vehicle: Truck,
+  "Spare Part": Package, Facility: MapPin,
 };
 
-const TIMELINE_STATUS: Record<string, { color: string; bg: string; Icon: React.ElementType; label: string }> = {
-  normal:  { color: "#16A34A", bg: "#DCFCE7",  Icon: CheckCheck,    label: "Normal"   },
-  warning: { color: "#D97706", bg: "#FEF3C7",  Icon: AlertTriangle, label: "Warning"  },
-  ignored: { color: "#64748B", bg: "#F1F5F9",  Icon: Clock,         label: "Ignored"  },
-  failure: { color: "#DC2626", bg: "#FEE2E2",  Icon: Zap,           label: "Critical" },
-  repair:  { color: "#2563EB", bg: "#DBEAFE",  Icon: RotateCcw,     label: "Repair"   },
-};
-
-function Section({ title, items, color = "#2563EB" }: { title: string; items?: string[]; color?: string }) {
-  const [open, setOpen] = useState(true);
-  if (!items || items.length === 0) return null;
-  return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-sm">
-      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F8FAFC] transition-colors cursor-pointer text-left">
-        <span className="text-xs font-bold" style={{ color }}>{title}</span>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-[#64748B]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />}
-      </button>
-      {open && (
-        <div className="px-4 pb-3 space-y-2 border-t border-[#E2E8F0] pt-3">
-          {items.map((item, i) => (
-            <div key={i} className="flex items-start gap-2.5">
-              <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: color }} />
-              <p className="text-xs text-[#64748B] leading-relaxed font-semibold">{item}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+// Health is a restatement of the real risk_level — never an invented score.
+function riskTone(risk?: string): Tone {
+  switch ((risk ?? "").toLowerCase()) {
+    case "critical": return "danger";
+    case "high": return "danger";
+    case "medium": return "warning";
+    case "low": return "success";
+    default: return "neutral";
+  }
+}
+function healthLabel(risk?: string): string {
+  switch ((risk ?? "").toLowerCase()) {
+    case "critical": return "Critical";
+    case "high": return "At risk";
+    case "medium": return "Watch";
+    case "low": return "Healthy";
+    default: return "No signal";
+  }
 }
 
-function HistoryTimeline({ entries }: { entries: AssetDetail["maintenance_history"] }) {
-  if (!entries.length) return null;
-  return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-wider text-[#F59E0B] mb-4">Maintenance Chronology</p>
-      <div className="space-y-4 relative pl-3 before:absolute before:left-1 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E2E8F0]">
-        {entries.map((e, i) => {
-          const cfg = TIMELINE_STATUS[e.status] ?? TIMELINE_STATUS.normal;
-          const Icon = cfg.Icon;
-          return (
-            <div key={i} className="flex gap-3 relative">
-              <span className="absolute -left-[15px] top-1.5 w-2 h-2 rounded-full bg-white border-2" style={{ borderColor: cfg.color }} />
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: cfg.bg, border: `1.5px solid ${cfg.color}30` }}>
-                <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-[#0F172A]">{e.event}</span>
-                  {e.date && <span className="text-[10px] font-bold text-[#94A3B8] font-mono">{e.date}</span>}
-                </div>
-                {e.detail && <p className="text-xs text-[#64748B] mt-0.5 font-semibold">{e.detail}</p>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TimelineEvents({ events }: { events: TimelineEvent[] }) {
-  if (!events.length) return null;
-  return (
-    <div className="bg-white border border-[#E2E8F0] rounded-xl p-5 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-wider text-[#DC2626] mb-4">Failure Incidents Chronology</p>
-      <div className="space-y-4 relative pl-3 before:absolute before:left-1 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E2E8F0]">
-        {events.map((evt, i) => {
-          const cfg = TIMELINE_STATUS[evt.status] ?? TIMELINE_STATUS.normal;
-          const Icon = cfg.Icon;
-          return (
-            <div key={i} className="flex gap-3 relative">
-              <span className="absolute -left-[15px] top-1.5 w-2 h-2 rounded-full bg-white border-2" style={{ borderColor: cfg.color }} />
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: cfg.bg, border: `1.5px solid ${cfg.color}30` }}>
-                <Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
-                  <span className="text-[10px] font-bold text-[#94A3B8] font-mono">{evt.time}</span>
-                </div>
-                <p className="text-xs font-bold text-[#0F172A] mt-1">{evt.event}</p>
-                {evt.detail && <p className="text-xs text-[#64748B] mt-0.5 font-semibold">{evt.detail}</p>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+const HISTORY_TONE: Record<string, Tone> = {
+  normal: "success", warning: "warning", ignored: "neutral", failure: "danger", repair: "info",
+};
 
 export default function MaintenancePage() {
   const [overview, setOverview] = useState<MaintenanceOverview | null>(null);
-  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
   const [detail, setDetail] = useState<AssetDetail | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const loadOverview = useCallback(() => {
-    setLoadingOverview(true);
-    fetchMaintenanceOverview()
-      .then(setOverview)
-      .catch(console.error)
-      .finally(() => setLoadingOverview(false));
-  }, []);
+  const refresh = useCallback(() => { setLoading(true); setReloadKey((k) => k + 1); }, []);
 
   useEffect(() => {
-    loadOverview();
-  }, [loadOverview]);
+    let alive = true;
+    (async () => {
+      try {
+        const data = await fetchMaintenanceOverview();
+        if (!alive) return;
+        setOverview(data); setError(null);
+      } catch {
+        if (!alive) return;
+        setError("Couldn't reach the maintenance service.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [reloadKey]);
 
   const visibleAssets = useMemo(() => {
     if (!overview) return [];
-    const pool: MaintenanceAsset[] = category
-      ? overview.assets.filter(a => a.asset_type === category)
-      : overview.assets;
+    const pool = category ? overview.assets.filter((a) => a.asset_type === category) : overview.assets;
     const needle = search.trim().toLowerCase();
-    return needle ? pool.filter(a => a.name.toLowerCase().includes(needle)) : pool;
+    return needle ? pool.filter((a) => a.name.toLowerCase().includes(needle)) : pool;
   }, [overview, category, search]);
 
-  const analyzeAsset = async (assetName: string) => {
-    setSelected(assetName);
-    setAnalyzing(true);
-    setDetail(null);
-    try { setDetail(await fetchAssetDetail(assetName)); }
-    catch (e) { console.error(e); }
+  const analyzeAsset = async (name: string) => {
+    setSelected(name); setAnalyzing(true); setDetail(null);
+    try { setDetail(await fetchAssetDetail(name)); }
+    catch { setDetail(null); }
     finally { setAnalyzing(false); }
   };
 
@@ -181,369 +106,410 @@ export default function MaintenancePage() {
     setGenerating(true);
     try {
       const report = await generateReport(`RCA – ${selected}`, "RCA");
-      window.open(getReportDownloadUrl(report.id), "_blank");
+      await downloadReportFile(report.id, `RCA-${selected}.pdf`);
     } catch (e) { console.error(e); }
     finally { setGenerating(false); }
   };
 
-  const rca = detail?.report;
-  const citations: Citation[] = detail?.citations ?? [];
-  const crit = rca?.criticality;
+  const k = overview?.kpis;
 
   return (
-    <div className="p-6 md:p-8 space-y-6 bg-[#FAFAF8]">
-      {generating && <RcaLoader />}
+    <PageTransition className="space-y-4 p-5 md:p-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
-              <Wrench className="w-4 h-4 text-white" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">Maintenance Intelligence</h1>
-          </div>
-          <p className="text-xs text-[#64748B] font-semibold ml-11">Predictive reliability indicators, MTTR/MTBF logs, and failure chronology mapping.</p>
+          <h1 className="text-xl font-bold tracking-tight text-ink">Maintenance Intelligence</h1>
+          <p className="mt-0.5 text-xs text-ink-secondary">
+            Maintainable assets discovered from your documents — with evidence-based RCA. No fabricated metrics.
+          </p>
         </div>
-        <button onClick={loadOverview} className="flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] hover:bg-[#F1F5F9] rounded-xl text-xs font-bold text-[#0F172A] bg-white transition-all cursor-pointer">
-          <RefreshCw className="w-3.5 h-3.5" /> Refresh Assets
-        </button>
+        <Button size="sm" onClick={refresh} disabled={loading}>
+          <RefreshCw className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} /> Refresh
+        </Button>
       </div>
 
-      {loadingOverview ? (
-        <MaintenanceLoader />
-      ) : !overview?.has_data ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-10 text-center shadow-sm">
-          <Boxes className="w-8 h-8 mx-auto mb-3 text-[#94A3B8]" />
-          <p className="text-xs font-bold text-[#64748B]">No maintenance registers found.</p>
-          <p className="text-xs text-[#94A3B8] mt-1">{overview?.message}</p>
+      {/* KPI row */}
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonKpi key={i} />)}
         </div>
+      ) : error ? (
+        <Card className="border-warning/30 bg-warning-subtle">
+          <CardContent className="flex items-center gap-2.5 py-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+            <p className="text-xs font-medium text-warning">{error} Figures are unavailable — not zero.</p>
+            <Button size="sm" variant="secondary" className="ml-auto" onClick={refresh}>Retry</Button>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          {/* KPI row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-            {[
-              { label: "Total Assets", value: overview.kpis.total_assets, Icon: Boxes, color: "#3b82f6" },
-              { label: "Critical Assets", value: overview.kpis.critical_assets, Icon: AlertOctagon, color: "#f97316" },
-              { label: "Open Incidents", value: overview.kpis.open_incidents, Icon: ShieldAlert, color: "#ef4444" },
-              { label: "High Risk", value: overview.kpis.high_risk_assets, Icon: TriangleAlert, color: "#ef4444" },
-              { label: "Missing Maintenance", value: overview.kpis.assets_missing_maintenance, Icon: Clock, color: "#eab308" },
-              { label: "Active Alerts", value: overview.kpis.assets_with_alerts, Icon: Zap, color: "#f43f5e" },
-            ].map(k => (
-              <div key={k.label} className="glass-card rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <k.Icon className="w-4 h-4" style={{ color: k.color }} />
-                  <span className="text-xl font-bold" style={{ color: k.color }}>{k.value}</span>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-tight">{k.label}</p>
-              </div>
-            ))}
-          </div>
+        <motion.div variants={staggerContainer} initial="hidden" animate="show"
+          className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          {[
+            { label: "Total assets", value: k?.total_assets ?? null, icon: Boxes, tone: "brand" as Tone },
+            { label: "Critical", value: k?.critical_assets ?? null, icon: AlertOctagon, tone: (k?.critical_assets ? "danger" : "neutral") as Tone },
+            { label: "Open incidents", value: k?.open_incidents ?? null, icon: ShieldAlert, tone: (k?.open_incidents ? "danger" : "neutral") as Tone },
+            { label: "High risk", value: k?.high_risk_assets ?? null, icon: AlertTriangle, tone: (k?.high_risk_assets ? "warning" : "neutral") as Tone },
+            { label: "No maint. record", value: k?.assets_missing_maintenance ?? null, icon: Clock, tone: "neutral" as Tone },
+            { label: "With alerts", value: k?.assets_with_alerts ?? null, icon: Zap, tone: (k?.assets_with_alerts ? "warning" : "neutral") as Tone },
+          ].map((kpi) => (
+            <motion.div key={kpi.label} variants={staggerItem}>
+              <KpiTile label={kpi.label} value={kpi.value} icon={kpi.icon} tone={kpi.tone} />
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
-          {/* Search + asset-type filter chips */}
-          <div className="flex flex-col gap-3 mb-5">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search assets by tag or location name…"
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl text-xs text-[#0F172A] placeholder:text-[#94A3B8] outline-none border border-[#E2E8F0] bg-white focus:border-blue-500 transition-colors" />
-            </div>
-            {overview.asset_types.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => setCategory(null)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-                  style={!category ? { background: "rgba(59,130,246,0.18)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.4)" } : { background: "rgba(255,255,255,0.04)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  All ({overview.kpis.total_assets})
-                </button>
-                {overview.asset_types.map(t => {
-                  const active = category === t;
-                  const { color } = typeMeta(t);
-                  return (
-                    <button key={t} onClick={() => setCategory(active ? null : t)}
-                      className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-                      style={active ? { background: `${color}22`, color, border: `1px solid ${color}55` } : { background: "rgba(255,255,255,0.04)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      {t} ({overview.type_counts[t]})
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left: Register & Dossier */}
-            <div className="xl:col-span-2 space-y-6">
-              <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4 border-b border-[#E2E8F0] pb-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#0F172A]">{category ?? "All Registered Assets"}</p>
-                  <span className="text-xs text-[#64748B] font-bold">{visibleAssets.length} found</span>
-                </div>
-                {visibleAssets.length === 0 ? (
-                  <p className="text-xs text-[#64748B] py-4 text-center">No assets match criteria.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {visibleAssets.map(a => {
-                      const { Icon, color } = typeMeta(a.asset_type);
-                      const rColor = riskColor(a.risk_level);
-                      const active = selected === a.name;
-                      const needsReview = a.confidence_band === "Needs Review";
-                      const status = a.status && a.status !== "Unknown" ? a.status : undefined;
-                      return (
-                        <button key={a.id} onClick={() => analyzeAsset(a.name)}
-                          className="relative flex items-start gap-2.5 p-3 rounded-xl text-left transition-all hover:scale-[1.01] overflow-hidden"
-                          style={{ background: active ? `${color}18` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? `${color}55` : "rgba(255,255,255,0.07)"}` }}>
-                          {/* Risk colour bar (green/yellow/orange/red) */}
-                          <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: rColor }} />
-                          <Icon className="w-4 h-4 flex-shrink-0 mt-0.5 ml-1" style={{ color }} />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-xs font-medium text-slate-200 truncate">{a.name}</p>
-                              {needsReview && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-semibold"
-                                  style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>REVIEW</span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                              {a.asset_type}
-                              {a.location ? ` · ${a.location}` : ""}
-                              {status ? ` · ${status}` : ""}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
-                                style={{ background: `${rColor}18`, color: rColor }}>{a.risk_level ?? "Low"}</span>
-                              {(a.incident_count ?? 0) > 0 && (
-                                <span className="text-[9px] text-red-400 flex items-center gap-0.5">
-                                  <Zap className="w-2.5 h-2.5" /> {a.incident_count}
-                                </span>
-                              )}
-                              <span className="text-[9px] text-slate-600">{a.doc_count} doc{a.doc_count === 1 ? "" : "s"}</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+      {/* Body: registry + dossier */}
+      {!loading && !error && (
+        overview && !overview.has_data ? (
+          <Card>
+            <EmptyState
+              icon={Boxes}
+              title="No maintainable assets found"
+              reason={overview.message || "No equipment or maintenance records were detected in your uploaded documents."}
+              hint="Upload maintenance logs, equipment manuals or inspection reports to populate the register."
+            />
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+            {/* Asset registry */}
+            <div className="xl:col-span-2">
+              <Card className="flex h-full flex-col">
+                <CardHeader className="flex-col items-stretch gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Asset register</CardTitle>
+                    <span className="text-[11px] text-ink-tertiary">{visibleAssets.length} shown</span>
                   </div>
-                )}
-              </div>
-
-              {analyzing && (
-                <div className="bg-white border border-[#E2E8F0] rounded-2xl p-8 flex items-center justify-center gap-3 shadow-sm">
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                  <span className="text-xs font-bold text-[#64748B]">Synthesizing predictive asset metrics...</span>
-                </div>
-              )}
-
-              {rca && detail && !analyzing && (
-                <>
-                  {/* Overview card */}
-                  <div className="glass-card rounded-2xl p-5">
-                    <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span className="text-xs text-emerald-400 font-medium">Dossier ready</span>
-                          {detail.overview.asset_type && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                              style={{ background: `${typeMeta(detail.overview.asset_type).color}18`, color: typeMeta(detail.overview.asset_type).color }}>
-                              {detail.overview.asset_type}
-                            </span>
-                          )}
-                          {detail.overview.risk_level && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                              style={{ background: `${riskColor(detail.overview.risk_level)}18`, color: riskColor(detail.overview.risk_level) }}>
-                              {detail.overview.risk_level} risk
-                            </span>
-                          )}
-                          {crit && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                              style={{ background: `${CRITICALITY_COLOR[crit] ?? "#64748B"}10`, color: CRITICALITY_COLOR[crit] ?? "#64748B" }}>
-                              {crit} severity
-                            </span>
-                          )}
-                          {detail.overview.confidence_band === "Needs Review" && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                              style={{ background: "rgba(234,179,8,0.15)", color: "#eab308" }}>
-                              Low confidence
-                            </span>
-                          )}
-                        </div>
-                        <h2 className="text-lg font-extrabold text-[#0F172A]">{detail.overview.name}</h2>
-                        {rca.failure_mode && <p className="text-xs font-bold text-[#DC2626]">{rca.failure_mode}</p>}
-                      </div>
-                      <button onClick={downloadRca} disabled={generating}
-                        className="flex items-center gap-2 px-4 py-2 border border-[#E2E8F0] hover:bg-[#F1F5F9] text-[#0F172A] rounded-xl text-xs font-bold bg-white transition-all cursor-pointer">
-                        {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        Export RCA Report
-                      </button>
-                    </div>
-
-                    {/* Extended MTTR/MTBF analytics preview */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-[#F8FAFC] p-4 border border-[#E2E8F0] rounded-xl">
-                      <div>
-                        <span className="text-[9px] font-bold text-[#94A3B8] uppercase">Reliability Index (MTBF)</span>
-                        <p className="text-sm font-extrabold text-[#0F172A] mt-0.5">730 Hours</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-[#94A3B8] uppercase">Avg Repair Span (MTTR)</span>
-                        <p className="text-sm font-extrabold text-[#0F172A] mt-0.5">4.2 Hours</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-[#94A3B8] uppercase">Failure Probability</span>
-                        <p className="text-sm font-extrabold text-[#DC2626] mt-0.5">2.4%</p>
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-[#94A3B8] uppercase">Predicted Savings</span>
-                        <p className="text-sm font-extrabold text-[#16A34A] mt-0.5">$18,400</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { label: "Reference Docs", value: detail.overview.document_count },
-                        { label: "Graph Linkages", value: detail.overview.related_node_count },
-                        { label: "Repair Records", value: detail.maintenance_history.length },
-                      ].map(s => (
-                        <div key={s.label} className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 text-center">
-                          <p className="text-lg font-extrabold text-[#0F172A]">{s.value}</p>
-                          <p className="text-[9px] text-[#64748B] font-bold uppercase mt-0.5">{s.label}</p>
-                        </div>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search assets…"
+                      className="w-full rounded-ui-md border border-line bg-canvas py-1.5 pl-8 pr-3 text-xs text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    />
+                  </div>
+                  {(overview?.asset_types.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <FilterChip active={!category} onClick={() => setCategory(null)}>
+                        All · {overview?.kpis.total_assets ?? 0}
+                      </FilterChip>
+                      {overview?.asset_types.map((t) => (
+                        <FilterChip key={t} active={category === t} onClick={() => setCategory(t)}>
+                          {t} · {overview.asset_counts[t] ?? 0}
+                        </FilterChip>
                       ))}
                     </div>
-
-                    {rca.root_cause && (
-                      <div className="p-4 border border-red-100 rounded-xl" style={{ background: "rgba(220,38,38,0.03)" }}>
-                        <p className="text-xs font-bold text-red-700 mb-1 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Root Cause Diagnosis</p>
-                        <p className="text-xs text-slate-700 leading-relaxed font-semibold">{rca.root_cause}</p>
-                      </div>
-                    )}
-                    {rca.downtime_impact && (
-                      <div className="p-3 border border-amber-100 rounded-xl" style={{ background: "rgba(245,158,11,0.03)" }}>
-                        <p className="text-xs font-bold text-amber-700 mb-1">Downtime Impact Analysis</p>
-                        <p className="text-xs text-slate-700 leading-relaxed font-semibold">{rca.downtime_impact}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <TimelineEvents events={rca.timeline ?? []} />
-                  <HistoryTimeline entries={detail.maintenance_history} />
-                  
-                  <Section title="Contributing Factors" items={rca.contributing_factors} color="#F59E0B" />
-                  <Section title="Maintenance Actions Undertaken" items={rca.maintenance_actions_taken} color="#16A34A" />
-                  <Section title="Lessons Learned" items={rca.lessons_learned} color="#7C3AED" />
-                </>
-              )}
-
-              {!selected && !analyzing && (
-                <div className="bg-white border border-[#E2E8F0] rounded-2xl p-10 text-center shadow-sm">
-                  <Wrench className="w-8 h-8 mx-auto mb-2 text-[#94A3B8]" />
-                  <p className="text-xs font-bold text-[#64748B]">No Asset Selected</p>
-                  <p className="text-[10px] text-[#94A3B8] max-w-sm mx-auto mt-1">Select an asset from the register to compile its telemetry profile and root cause analysis dossier.</p>
-                </div>
-              )}
+                  )}
+                </CardHeader>
+                <CardContent className="max-h-[560px] min-h-[200px] flex-1 overflow-y-auto p-0">
+                  {visibleAssets.length === 0 ? (
+                    <p className="p-5 text-center text-xs text-ink-tertiary">No assets match your filter.</p>
+                  ) : (
+                    <ul className="divide-y divide-line">
+                      {visibleAssets.map((a) => (
+                        <AssetRow
+                          key={a.id}
+                          asset={a}
+                          active={selected === a.name}
+                          onClick={() => analyzeAsset(a.name)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Right: Context Panels */}
-            <div className="space-y-4">
-              {/* Specifications — persisted metadata with provenance (source doc) */}
-              {detail && Object.keys(detail.metadata).length > 0 && (
-                <div className="glass-card rounded-2xl p-4">
-                  <p className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2"><Gauge className="w-3.5 h-3.5 text-cyan-400" /> Specifications</p>
-                  <div className="space-y-2">
-                    {Object.entries(detail.metadata).map(([field, m]) => (
-                      <div key={field} className="px-3 py-2 rounded-lg" style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.12)" }}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-slate-500 capitalize">{field.replace(/_/g, " ")}</span>
-                          {m.source_document && <span className="text-[9px] text-slate-600 truncate max-w-[45%]" title={`Source: ${m.source_document}`}>📄 {m.source_document}</span>}
-                        </div>
-                        <p className="text-xs text-slate-200 mt-0.5">{m.value}</p>
-                        {m.snippet && <p className="text-[10px] text-slate-600 mt-0.5 italic truncate" title={m.snippet}>“{m.snippet}”</p>}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-slate-600 mt-2">Extracted from your documents — every value cites its source.</p>
-                </div>
-              )}
-
-              {/* Incidents (structured, from the asset store) */}
-              {detail && detail.incidents.length > 0 && (
-                <div className="glass-card rounded-2xl p-4">
-                  <p className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2"><ShieldAlert className="w-3.5 h-3.5 text-red-400" /> Incidents</p>
-                  <div className="space-y-2">
-                    {detail.incidents.map(inc => (
-                      <div key={inc.id} className="px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.12)" }}>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-slate-200 truncate flex-1">{inc.title}</p>
-                          {inc.severity && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${riskColor(inc.severity)}18`, color: riskColor(inc.severity) }}>{inc.severity}</span>}
-                        </div>
-                        {inc.root_cause && <p className="text-[10px] text-slate-500 mt-0.5">Root cause: {inc.root_cause}</p>}
-                        {inc.downtime && <p className="text-[10px] text-amber-400/80 mt-0.5">Downtime: {inc.downtime}</p>}
-                        {inc.source_document && <p className="text-[9px] text-slate-600 mt-0.5">📄 {inc.source_document}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Aliases (merged duplicate names) */}
-              {detail && detail.aliases.length > 0 && (
-                <div className="glass-card rounded-2xl p-4">
-                  <p className="text-xs font-semibold text-slate-400 mb-2">Also known as</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {detail.aliases.map(a => (
-                      <span key={a} className="text-[10px] px-2 py-0.5 rounded-full text-slate-400" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>{a}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Section title="Recommendations" items={detail?.recommendations} color="#3b82f6" />
-              <Section title="Spare Parts Involved" items={rca?.spare_parts_involved} color="#f97316" />
-
-              {detail && detail.related_graph_nodes.length > 0 && (
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5"><Network className="w-3.5 h-3.5 text-purple-600" /> Topology Linkages</p>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {detail.related_graph_nodes.map(n => (
-                      <div key={n.id} className="p-2.5 rounded-lg border border-purple-100" style={{ background: "rgba(124,58,237,0.04)" }}>
-                        <p className="text-xs font-bold text-[#0F172A] truncate">{n.name}</p>
-                        <p className="text-[9px] text-[#64748B] font-semibold mt-0.5">
-                          {n.direction === "outgoing" ? "→" : "←"} {n.relationship} · {n.type}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {detail && detail.related_documents.length > 0 && (
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-blue-600" /> Linked Documentation</p>
-                  <div className="space-y-2">
-                    {detail.related_documents.map(d => (
-                      <div key={d.id} className="p-2.5 rounded-lg border border-blue-100" style={{ background: "rgba(37,99,235,0.04)" }}>
-                        <p className="text-xs font-bold text-blue-700 truncate hover:underline cursor-pointer">{d.filename}</p>
-                        {d.category && <p className="text-[9px] text-[#64748B] font-semibold mt-0.5">{d.category}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {citations.length > 0 && (
-                <div className="bg-white border border-[#E2E8F0] rounded-xl p-4 shadow-sm space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-500" /> Source References</p>
-                  <div className="space-y-2">
-                    {citations.map((c, i) => (
-                      <div key={i} className="p-2.5 rounded-lg border border-slate-200 bg-[#F8FAFC]">
-                        <p className="text-xs font-bold text-[#0F172A] truncate hover:underline cursor-pointer">{c.document_name}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {/* Dossier */}
+            <div className="xl:col-span-3">
+              {!selected ? (
+                <Card>
+                  <EmptyState
+                    icon={Wrench}
+                    title="Select an asset"
+                    reason="Choose an asset from the register to see its evidence-based root-cause analysis, incident history and maintenance timeline."
+                  />
+                </Card>
+              ) : analyzing ? (
+                <DossierSkeleton />
+              ) : detail ? (
+                <Dossier detail={detail} onDownload={downloadRca} generating={generating} />
+              ) : (
+                <Card>
+                  <EmptyState
+                    icon={AlertTriangle}
+                    title="Analysis unavailable"
+                    reason={`Couldn't load the dossier for ${selected}. The service may be unreachable.`}
+                    action={<Button size="sm" onClick={() => analyzeAsset(selected)}>Retry</Button>}
+                  />
+                </Card>
               )}
             </div>
           </div>
+        )
+      )}
+    </PageTransition>
+  );
+}
+
+// ── Filter chip ─────────────────────────────────────────────────────────────
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-ui-md border px-2 py-0.5 text-[11px] font-semibold transition-colors",
+        active
+          ? "border-brand-line bg-brand-subtle text-brand"
+          : "border-line bg-surface text-ink-secondary hover:bg-subtle"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ── Asset row ───────────────────────────────────────────────────────────────
+function AssetRow({ asset, active, onClick }: { asset: MaintenanceAsset; active: boolean; onClick: () => void }) {
+  const Icon = TYPE_ICON[asset.asset_type] ?? Boxes;
+  const tone = riskTone(asset.risk_level);
+  return (
+    <li>
+      <button
+        onClick={onClick}
+        className={cn(
+          "flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors",
+          active ? "bg-brand-subtle" : "hover:bg-subtle"
+        )}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-md border border-line bg-subtle">
+          <Icon className="h-4 w-4 text-ink-secondary" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold text-ink">{asset.name}</p>
+          <p className="truncate text-[11px] text-ink-tertiary">
+            {asset.asset_type}
+            {asset.location ? ` · ${asset.location}` : ""}
+            {asset.incident_count ? ` · ${asset.incident_count} incident${asset.incident_count > 1 ? "s" : ""}` : ""}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <StatusDot tone={tone} />
+          <Badge tone={tone}>{healthLabel(asset.risk_level)}</Badge>
+        </div>
+      </button>
+    </li>
+  );
+}
+
+// ── Dossier skeleton ────────────────────────────────────────────────────────
+function DossierSkeleton() {
+  return (
+    <Card>
+      <CardContent className="space-y-3">
+        <Skeleton className="h-6 w-1/2" />
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Dossier ─────────────────────────────────────────────────────────────────
+function Dossier({ detail, onDownload, generating }: { detail: AssetDetail; onDownload: () => void; generating: boolean }) {
+  const { overview: ov, report: rca } = detail;
+  const Icon = TYPE_ICON[ov.asset_type ?? ""] ?? Boxes;
+  const tone = riskTone(ov.risk_level ?? undefined);
+  const noEvidence = rca?.no_maintenance_evidence;
+
+  const timeline = rca?.timeline?.length
+    ? rca.timeline
+    : (rca?.chronology ?? []).map((c) => ({ time: "", event: c, status: "normal", detail: "" }));
+
+  return (
+    <div className="space-y-4">
+      {/* Dossier header */}
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-ui-lg border border-line bg-subtle">
+              <Icon className="h-5 w-5 text-ink-secondary" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-ink">{detail.asset}</h2>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {ov.asset_type && <Badge tone="neutral">{ov.asset_type}</Badge>}
+                <Badge tone={tone}>Risk: {ov.risk_level ?? "—"}</Badge>
+                {ov.confidence_band && <Badge tone="brand">{ov.confidence_band}</Badge>}
+                {ov.location && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-ink-tertiary">
+                    <MapPin className="h-3 w-3" /> {ov.location}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <Button variant="primary" size="sm" onClick={onDownload} loading={generating}>
+            <Download className="h-3.5 w-3.5" /> RCA PDF
+          </Button>
+        </div>
+      </Card>
+
+      {/* No-evidence honest state */}
+      {noEvidence ? (
+        <Card>
+          <EmptyState
+            icon={ShieldCheck}
+            title="No maintenance evidence for this asset"
+            reason={rca?.root_cause || "This asset is mentioned in your documents, but they contain no repair logs, work orders, inspection records or failure history — so no root-cause analysis can be produced."}
+            hint="Upload maintenance logs or incident reports for this asset to enable RCA."
+          />
+        </Card>
+      ) : (
+        <>
+          {/* Root cause */}
+          {(rca?.failure_mode || rca?.root_cause) && (
+            <Card>
+              <CardHeader><CardTitle>Root cause analysis</CardTitle>
+                {rca?.criticality && <Badge tone={riskTone(rca.criticality)}>{rca.criticality}</Badge>}
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {rca?.failure_mode && (
+                  <Field label="Failure mode"><p className="text-[13px] text-ink">{rca.failure_mode}</p></Field>
+                )}
+                {rca?.root_cause && (
+                  <Field label="Root cause"><p className="text-[13px] leading-relaxed text-ink-secondary">{rca.root_cause}</p></Field>
+                )}
+                {!!rca?.contributing_factors?.length && (
+                  <Field label="Contributing factors">
+                    <ul className="space-y-1">
+                      {rca.contributing_factors.map((f, i) => (
+                        <li key={i} className="flex gap-2 text-[13px] text-ink-secondary">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-warning" />{f}
+                        </li>
+                      ))}
+                    </ul>
+                  </Field>
+                )}
+                {rca?.downtime_impact && (
+                  <Field label="Downtime impact"><p className="text-[13px] text-ink-secondary">{rca.downtime_impact}</p></Field>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Failure chronology timeline */}
+          {timeline.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Failure chronology</CardTitle></CardHeader>
+              <CardContent>
+                <Timeline items={timeline} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Preventive recommendations */}
+          {!!rca?.preventive_recommendations?.length && (
+            <Card>
+              <CardHeader><CardTitle>Preventive recommendations</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {rca.preventive_recommendations.map((r, i) => (
+                    <li key={i} className="flex gap-2.5 text-[13px] text-ink-secondary">
+                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />{r}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
+
+      {/* Maintenance history (always real, independent of RCA) */}
+      {detail.maintenance_history.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Maintenance history</CardTitle></CardHeader>
+          <CardContent>
+            <Timeline
+              items={detail.maintenance_history.map((h) => ({
+                time: h.date, event: h.event, status: h.status, detail: h.detail, source: h.source_document,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Extracted attributes with provenance */}
+      {Object.keys(detail.metadata).length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Extracted attributes</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {Object.entries(detail.metadata).map(([field, m]) => (
+              <div key={field} className="flex items-start justify-between gap-3 border-b border-line pb-2 last:border-0 last:pb-0">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold capitalize text-ink">{field.replace(/_/g, " ")}</p>
+                  {m.source_document && (
+                    <p className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-tertiary">
+                      <FileText className="h-2.5 w-2.5" /> {m.source_document}
+                      {m.page_number != null ? ` · p.${m.page_number}` : ""}
+                    </p>
+                  )}
+                </div>
+                <p className="shrink-0 text-right text-xs font-semibold text-ink-secondary">{m.value}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+// ── Timeline ────────────────────────────────────────────────────────────────
+type TLItem = { time?: string; event: string; status?: string; detail?: string; source?: string | null };
+function Timeline({ items }: { items: TLItem[] }) {
+  return (
+    <ol className="space-y-3">
+      {items.map((it, i) => {
+        const tone = HISTORY_TONE[it.status ?? "normal"] ?? "neutral";
+        const dotColor: Record<Tone, string> = {
+          neutral: "bg-ink-tertiary", success: "bg-success", warning: "bg-warning",
+          danger: "bg-danger", info: "bg-info", brand: "bg-brand",
+        };
+        return (
+          <li key={i} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", dotColor[tone])} />
+              {i < items.length - 1 && <span className="mt-1 w-px flex-1 bg-line" />}
+            </div>
+            <div className="min-w-0 flex-1 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[13px] font-semibold text-ink">{it.event}</p>
+                {it.status && <Badge tone={tone}>{it.status}</Badge>}
+                {it.time && <span className="text-[11px] text-ink-tertiary">{it.time}</span>}
+              </div>
+              {it.detail && <p className="mt-0.5 text-xs leading-relaxed text-ink-secondary">{it.detail}</p>}
+              {it.source && (
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-tertiary">
+                  <FileText className="h-2.5 w-2.5" /> {it.source}
+                </p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

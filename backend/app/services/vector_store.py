@@ -121,6 +121,7 @@ class VectorStoreService:
     def __init__(self):
         self.index_dir = settings.FAISS_INDEX_PATH
         self.db = None
+        self.embedding_model_name = "none (lexical-only)"
         self.fallback_db = BasicTextSearcher()
         self.fallback_db.load(self.index_dir)
         self._init_embeddings_and_faiss()
@@ -139,12 +140,14 @@ class VectorStoreService:
                 model="models/gemini-embedding-001",
                 google_api_key=api_key
             )
+            self.embedding_model_name = "models/gemini-embedding-001 (Google)"
             logger.info("GoogleGenerativeAIEmbeddings initialized successfully.")
         except Exception as e:
             logger.warning(f"Could not load Google Generative AI Embeddings: {e}. Trying SentenceTransformers...")
             try:
                 from langchain_community.embeddings import HuggingFaceEmbeddings
                 self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+                self.embedding_model_name = "all-MiniLM-L6-v2 (local HuggingFace)"
                 logger.info("Local HuggingFace all-MiniLM-L6-v2 Embeddings initialized successfully.")
             except Exception as hf_err:
                 logger.error(f"Could not load local HuggingFace embeddings: {hf_err}. Using BasicTextSearcher fallback.")
@@ -196,44 +199,129 @@ class VectorStoreService:
             logger.error(f"Error adding chunks to FAISS index: {e}")
             # Do not raise, we have the fallback database
 
-    def search(self, query: str, k: int = 5, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        Hybrid retrieval: casts a wider net with both FAISS semantic vector
-        similarity and keyword overlap search (BasicTextSearcher), then
-        reranks the combined candidate pool with Reciprocal Rank Fusion (see
-        `_reciprocal_rank_fusion`) rather than a naive vector-first
-        concatenation. This catches cases embedding similarity alone can miss
-        (exact codes, names, dates) while still benefiting from semantic
-        matching, and a chunk ranked well by *both* retrievers is correctly
-        prioritized over one only one retriever liked.
-        Restricted to the given user's own uploaded documents (if user_id is provided).
-        Returns a list of dictionaries with 'page_content' and 'metadata'.
-        """
-        fetch_k = max(k * 3, 15)  # wider candidate pool feeds the reranker
+    def _faiss_search(self, query: str, fetch_k: int, user_id: Optional[str]) -> List[Dict[str, Any]]:
+        """FAISS semantic vector similarity, scoped to the user's own documents."""
+        if self.db is None or self.embeddings is None:
+            return []
+        try:
+            filter_ = {"user_id": user_id} if user_id is not None else None
+            raw_results = self.db.similarity_search_with_score(query, k=fetch_k, filter=filter_)
+            return [
+                {"page_content": doc.page_content, "metadata": doc.metadata,
+                 "score": float(score), "retriever": "faiss"}
+                for doc, score in raw_results
+            ]
+        except Exception as e:
+            logger.error(f"FAISS search failed: {e}. Continuing with lexical retrievers only.")
+            return []
 
-        vector_results: List[Dict[str, Any]] = []
-        if self.db is not None and self.embeddings is not None:
+    def search(self, query: str, k: int = 10, user_id: Optional[str] = None,
+               db: Optional[Any] = None) -> List[Dict[str, Any]]:
+        """
+        Hybrid retrieval over three complementary retrievers, merged and reranked
+        with Reciprocal Rank Fusion (see `_reciprocal_rank_fusion`):
+
+          1. FAISS  — semantic vector similarity (embedding model).
+          2. PostgreSQL Full-Text Search — `to_tsvector`/`ts_rank` over the
+             `document_chunks` source of truth (Postgres only).
+          3. BM25   — classic keyword ranking over the same chunks (any backend).
+
+        The query is first alias-expanded (see `query_normalizer.expand_query`)
+        so "R&D budget" also matches "Research and Development allocation" — the
+        single biggest cause of "data exists but the question fails". A chunk
+        ranked well by several retrievers floats to the top of the fused list.
+
+        No retriever is allowed to declare defeat on its own: a "not found"
+        answer upstream is only reached when ALL THREE return nothing.
+
+        Restricted to the given user's own uploaded documents (if user_id given).
+        `db` is an optional SQLAlchemy session to reuse; when omitted a short
+        read-only session is opened for the lexical retrievers. Returns a list
+        of dicts with 'page_content' and 'metadata' (best-first).
+        """
+        from app.services.query_normalizer import expand_query
+        from app.services import lexical_search
+
+        fetch_k = max(k * 3, 30)  # wide candidate pool per retriever feeds the reranker
+        expanded = expand_query(query)
+
+        # 1. Semantic (uses the synonym-enriched query so acronyms/aliases match).
+        faiss_results = self._faiss_search(expanded.semantic_query, fetch_k, user_id)
+
+        # 2 & 3. Lexical retrievers over the Postgres source of truth.
+        owns_session = False
+        if db is None:
             try:
-                filter_ = {"user_id": user_id} if user_id is not None else None
-                raw_results = self.db.similarity_search_with_score(query, k=fetch_k, filter=filter_)
-                vector_results = [
-                    {"page_content": doc.page_content, "metadata": doc.metadata, "score": float(score)}
-                    for doc, score in raw_results
-                ]
+                from app.db.session import SessionLocal
+                db = SessionLocal()
+                owns_session = True
             except Exception as e:
-                logger.error(f"FAISS search failed: {e}. Continuing with keyword search only.")
+                logger.warning(f"Could not open a DB session for lexical retrieval: {e}")
+                db = None
 
-        keyword_results = self.fallback_db.similarity_search(query, k=fetch_k, user_id=user_id)
+        fts_results: List[Dict[str, Any]] = []
+        bm25_results: List[Dict[str, Any]] = []
+        try:
+            if db is not None:
+                fts_results = lexical_search.postgres_fts_search(db, expanded.lexical_terms, user_id, fetch_k)
+                bm25_results = lexical_search.bm25_search(db, expanded.lexical_terms, user_id, fetch_k)
+        except Exception as e:
+            logger.error(f"Lexical retrieval failed: {e}.")
+        finally:
+            if owns_session and db is not None:
+                db.close()
 
-        results = _reciprocal_rank_fusion([vector_results, keyword_results])[:k]
+        result_lists = [faiss_results, fts_results, bm25_results]
 
-        retrieved_docs = sorted({r.get("metadata", {}).get("filename", "Unknown Document") for r in results})
-        logger.info(
-            f"Hybrid retrieval for query {query!r} (user_id={user_id}): "
-            f"{len(vector_results)} vector hit(s), {len(keyword_results)} keyword hit(s), "
-            f"{len(results)} reranked result(s) from document(s): {retrieved_docs}"
-        )
+        # Last-resort in-memory keyword fallback: only if every DB/vector
+        # retriever came up empty (e.g. embeddings offline AND no DB session),
+        # so we still never give up before all methods have failed.
+        if not any(result_lists):
+            keyword_results = self.fallback_db.similarity_search(expanded.semantic_query, k=fetch_k, user_id=user_id)
+            for r in keyword_results:
+                r["retriever"] = "keyword_fallback"
+            result_lists.append(keyword_results)
+
+        results = _reciprocal_rank_fusion(result_lists)[:k]
+
+        self._log_retrieval_debug(query, expanded, user_id,
+                                  faiss_results, fts_results, bm25_results, results)
         return results
+
+    def _log_retrieval_debug(self, query, expanded, user_id, faiss_results,
+                             fts_results, bm25_results, results) -> None:
+        """
+        Structured per-query retrieval trace (embedding model, per-retriever hit
+        counts, alias expansions, and the final reranked order with chunk/doc
+        ids and scores) — the observability the RAG pipeline needs to explain
+        why any given chunk did or didn't surface.
+        """
+        lines = [
+            f"===== RETRIEVAL DEBUG | user_id={user_id} =====",
+            f"  query           : {query!r}",
+            f"  embedding_model : {self.embedding_model_name}",
+        ]
+        if expanded.matched_aliases:
+            alias_str = "; ".join(f"{m} -> [{', '.join(syn)}]" for m, syn in expanded.matched_aliases)
+            lines.append(f"  alias_expansion : {alias_str}")
+            lines.append(f"  semantic_query  : {expanded.semantic_query!r}")
+        lines.append(f"  lexical_terms   : {expanded.lexical_terms}")
+        lines.append(
+            f"  retriever_hits  : FAISS={len(faiss_results)} "
+            f"postgres_fts={len(fts_results)} bm25={len(bm25_results)}"
+        )
+        lines.append(f"  reranked_top_{len(results)} (chunk_id = document_id:chunk_index):")
+        for rank, r in enumerate(results, start=1):
+            meta = r.get("metadata", {})
+            doc_id = meta.get("document_id")
+            preview = (r.get("page_content") or "").strip().replace("\n", " ")[:90]
+            lines.append(
+                f"    #{rank:>2} rerank={r.get('rerank_score', 0.0):.5f} "
+                f"via={r.get('retriever', '?')} raw_score={r.get('score', 0.0):.4f} "
+                f"chunk_id={doc_id}:{meta.get('chunk_index')} "
+                f"doc={meta.get('filename', 'Unknown')!r} | {preview!r}"
+            )
+        logger.info("\n".join(lines))
 
     def remove_document(self, document_id: str) -> None:
         """

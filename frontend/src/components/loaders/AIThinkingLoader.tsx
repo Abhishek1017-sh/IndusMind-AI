@@ -29,9 +29,9 @@ export default function AIThinkingLoader() {
       <div
         style={{
           width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-          background: "linear-gradient(135deg,#2563EB,#3B82F6)",
+          background: "linear-gradient(135deg,#4F46E5,#6366F1)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 2px 12px rgba(37,99,235,0.25)",
+          boxShadow: "0 2px 12px rgba(79, 70, 229,0.25)",
           animation: "im-pulse-glow 2s ease-in-out infinite",
         }}
       >
@@ -41,13 +41,13 @@ export default function AIThinkingLoader() {
       <div className="flex flex-col gap-1.5 pt-1">
         {/* Thinking label */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-bold text-[#2563EB]">Thinking</span>
+          <span className="text-[11px] font-bold text-[#4F46E5]">Thinking</span>
           {[0, 1, 2].map(i => (
             <span
               key={i}
               style={{
                 width: 4, height: 4, borderRadius: "50%",
-                background: "#2563EB",
+                background: "#4F46E5",
                 display: "inline-block",
                 animation: `im-dot-bounce 1.1s ease-in-out ${i * 0.18}s infinite`,
               }}

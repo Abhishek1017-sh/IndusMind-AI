@@ -86,7 +86,7 @@ export default function HomePage() {
         x: seedRandom(i * 3) * 90 + 5,       // Spread from 5% to 95%
         y: seedRandom(i * 3 + 1) * 90 + 5,
         size: seedRandom(i * 3 + 2) * 5 + 3,  // sizes 3px to 8px
-        color: i % 3 === 0 ? "#3B82F6" : i % 3 === 1 ? "#6366F1" : "#06B6D4",
+        color: i % 3 === 0 ? "#6366F1" : i % 3 === 1 ? "#6366F1" : "#06B6D4",
         depth: seedRandom(i * 3 + 3) * 80 - 40, // depth from -40px to +40px for 3D parallax parallax
       });
     }
@@ -135,13 +135,13 @@ export default function HomePage() {
       {/* Premium login authentication overlay */}
       {loading && <LoginLoader />}
 
-      <div className="min-h-screen flex bg-[#FAFAF8]">
+      <div className="min-h-screen flex bg-[#F4F6FB]">
 
         {/* Left panel - branding */}
         <div
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12 relative overflow-hidden bg-[#FAFAF8] border-r  border-none"
+          className="hidden lg:flex flex-1 flex-col justify-center px-16 py-12 relative overflow-hidden bg-[#F4F6FB] border-r  border-none"
         >
           {/* Dense Cybernetic background network grid */}
           <div className="absolute inset-0 z-0 pointer-events-none">
@@ -217,19 +217,19 @@ export default function HomePage() {
           >
             {/* Logo */}
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#2563EB] to-[#3B82F6]">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#4F46E5] to-[#6366F1]">
                 <Brain className="w-6 h-6 text-white" />
               </div>
               <div>
                 <p className="text-sm font-extrabold text-[#0F172A] leading-tight">IndusMind AI</p>
-                <p className="text-[10px] text-blue-600 font-extrabold uppercase tracking-wider">Industrial Knowledge Platform</p>
+                <p className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-wider">Industrial Knowledge Platform</p>
               </div>
             </div>
 
             {/* Header copy */}
             <h1 className="text-4xl font-extrabold text-[#0F172A] leading-tight mb-4">
               Unified Plant<br />
-              <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-indigo-600 to-cyan-500 bg-clip-text text-transparent">
                 Knowledge Intelligence
               </span>
             </h1>
@@ -244,7 +244,7 @@ export default function HomePage() {
               <div className="absolute left-[39px] top-6 bottom-6 w-[2px] bg-slate-200/50 z-0">
                 {/* Glowing Pulse Dot */}
                 <div
-                  className="absolute w-[6px] h-12 -left-[2px] bg-gradient-to-b from-transparent via-blue-600 to-transparent shadow-[0_0_10px_#2563EB] rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  className="absolute w-[6px] h-12 -left-[2px] bg-gradient-to-b from-transparent via-indigo-600 to-transparent shadow-[0_0_10px_#4F46E5] rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
                   style={{
                     top: `${activeFeature * 25 + 12}%`,
                     transform: "translateY(-50%)"
@@ -261,17 +261,17 @@ export default function HomePage() {
                     onClick={() => setActiveFeature(idx)}
                     className={`relative flex items-start gap-4 p-5 rounded-2xl cursor-pointer transition-all duration-500 transform overflow-hidden z-10 ${
                       active
-                        ? "bg-white/95 border border-slate-200 shadow-[0_10px_30px_-10px_rgba(37,99,235,0.08)] scale-[1.03] border-l-4 border-l-blue-600 pointer-events-auto"
+                        ? "bg-white/95 border border-slate-200 shadow-[0_10px_30px_-10px_rgba(79, 70, 229,0.08)] scale-[1.03] border-l-4 border-l-indigo-600 pointer-events-auto"
                         : "bg-white/40 border border-slate-100/40 opacity-45 scale-[0.97] blur-[0.5px] shadow-none pointer-events-auto hover:opacity-75 hover:scale-[0.99] hover:blur-0 transition-all duration-300"
                     }`}
                   >
                     {/* Icon container */}
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all duration-300 ${
                       active
-                        ? "bg-blue-50 border-blue-100 shadow-sm"
+                        ? "bg-indigo-50 border-indigo-100 shadow-sm"
                         : "bg-slate-50/50 border-slate-100"
                     }`}>
-                      <Icon className={`w-5 h-5 transition-colors duration-300 ${active ? "text-blue-600" : "text-slate-400"}`} />
+                      <Icon className={`w-5 h-5 transition-colors duration-300 ${active ? "text-indigo-600" : "text-slate-400"}`} />
                     </div>
 
                     <div>
@@ -284,7 +284,7 @@ export default function HomePage() {
                       <div className="absolute bottom-0 inset-x-0 h-[3px] bg-slate-100 rounded-b-2xl overflow-hidden">
                         <div
                           key={idx} // Reset animation key
-                          className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full"
+                          className="h-full bg-gradient-to-r from-indigo-600 to-cyan-500 rounded-full"
                           style={{
                             animation: "progress-sweep 4s linear forwards",
                           }}
@@ -305,25 +305,25 @@ export default function HomePage() {
             </span>
             <span>Cluster Status: <span className="text-[#0F172A]">Active</span></span>
             <span className="text-slate-300">|</span>
-            <span>Uptime: <span className="text-blue-600">99.98%</span></span>
+            <span>Uptime: <span className="text-indigo-600">99.98%</span></span>
             <span className="text-slate-300">|</span>
             <span>Latency: <span className="text-emerald-600">12ms</span></span>
           </div>
         </div>
 
         {/* Right panel - Auth form */}
-        <div className="flex flex-1 items-center justify-center px-6 py-12 lg:px-12 bg-[#FAFAF8] z-10">
+        <div className="flex flex-1 items-center justify-center px-6 py-12 lg:px-12 bg-[#F4F6FB] z-10">
           <div className="w-full max-w-md">
 
             {/* Logo on mobile */}
             <div className="lg:hidden flex items-center gap-3 mb-8">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#2563EB] to-[#3B82F6]">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#4F46E5] to-[#6366F1]">
                 <Brain className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-[#0F172A]">IndusMind AI</span>
             </div>
 
-            <div className="group bg-white border rounded-2xl p-8 relative overflow-hidden transition-all duration-500 hover:border-blue-500/50 hover:shadow-[0_30px_60px_-15px_rgba(15,23,42,0.08),_0_0_50px_-10px_rgba(37,99,235,0.03)]"
+            <div className="group bg-white border rounded-2xl p-8 relative overflow-hidden transition-all duration-500 hover:border-indigo-500/50 hover:shadow-[0_30px_60px_-15px_rgba(15,23,42,0.08),_0_0_50px_-10px_rgba(79, 70, 229,0.03)]"
               style={{ border: "1px solid rgba(226, 232, 240, 0.8)", boxShadow: "0 20px 40px rgba(15, 23, 42, 0.04)" }}>
               {/* Subtle hover grid */}
               <div className="absolute inset-0 cyber-card-grid opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl" />
@@ -374,7 +374,7 @@ export default function HomePage() {
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300">
                             <Mail className={`w-4 h-4 transition-all duration-300 ${
-                              focusedInput === "login-email" ? "text-blue-600 scale-110" : "text-slate-400"
+                              focusedInput === "login-email" ? "text-indigo-600 scale-110" : "text-slate-400"
                             }`} />
                           </div>
                           <input
@@ -385,7 +385,7 @@ export default function HomePage() {
                             onBlur={() => setFocusedInput(null)}
                             required
                             placeholder="you@company.com"
-                            className="w-full pl-9 pr-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:shadow-[0_0_12px_rgba(37,99,235,0.12)] bg-white transition-all duration-300"
+                            className="w-full pl-9 pr-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:shadow-[0_0_12px_rgba(79, 70, 229,0.12)] bg-white transition-all duration-300"
                           />
                         </div>
                       </div>
@@ -393,14 +393,14 @@ export default function HomePage() {
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <label className="block text-xs font-bold text-[#64748B]">Password</label>
-                          <button type="button" className="text-[10px] text-blue-600 font-semibold hover:underline cursor-pointer bg-transparent border-0">
+                          <button type="button" className="text-[10px] text-indigo-600 font-semibold hover:underline cursor-pointer bg-transparent border-0">
                             Forgot Password?
                           </button>
                         </div>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300">
                             <Lock className={`w-4 h-4 transition-all duration-300 ${
-                              focusedInput === "login-pwd" ? "text-blue-600 scale-110" : "text-slate-400"
+                              focusedInput === "login-pwd" ? "text-indigo-600 scale-110" : "text-slate-400"
                             }`} />
                           </div>
                           <input
@@ -411,7 +411,7 @@ export default function HomePage() {
                             onBlur={() => setFocusedInput(null)}
                             required
                             placeholder="••••••••"
-                            className="w-full pl-9 pr-10 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:shadow-[0_0_12px_rgba(37,99,235,0.12)] bg-white transition-all duration-300"
+                            className="w-full pl-9 pr-10 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:shadow-[0_0_12px_rgba(79, 70, 229,0.12)] bg-white transition-all duration-300"
                           />
                           <button
                             type="button"
@@ -429,7 +429,7 @@ export default function HomePage() {
                           id="remember"
                           checked={rememberMe}
                           onChange={e => setRememberMe(e.target.checked)}
-                          className="w-3.5 h-3.5 rounded border-[#E2E8F0] text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-[#E2E8F0] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                         />
                         <label htmlFor="remember" className="text-[11px] text-[#64748B] font-semibold cursor-pointer select-none">
                           Remember Me
@@ -448,8 +448,8 @@ export default function HomePage() {
                         onMouseMove={handleButtonMouseMove}
                         className="shimmer-btn w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-60 cursor-pointer mt-2 relative overflow-hidden active:scale-[0.98] border-0"
                         style={{
-                          background: "radial-gradient(circle 80px at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.18), transparent), linear-gradient(135deg, #2563EB, #3B82F6)",
-                          boxShadow: "0 4px 12px rgba(37,99,235,0.2)"
+                          background: "radial-gradient(circle 80px at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.18), transparent), linear-gradient(135deg, #4F46E5, #6366F1)",
+                          boxShadow: "0 4px 12px rgba(79, 70, 229,0.2)"
                         }}
                       >
                         {loading ? "Authenticating…" : "Sign In →"}
@@ -460,7 +460,7 @@ export default function HomePage() {
                     <div className="mt-6 p-4 px-1 bg-white border-0 rounded-xl relative overflow-hidden shadow-none">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                          <Shield className="w-3.5 h-3.5 text-blue-600" />
+                          <Shield className="w-3.5 h-3.5 text-indigo-600" />
                           <span>Secure Authorization Key</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-[9px] text-emerald-600 font-bold uppercase">
@@ -470,8 +470,8 @@ export default function HomePage() {
                       </div>
                       <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
                         Demo Credentials:<br />
-                        <span className="inline-block mt-2.5">Email: <span className="bg-[#F8FAFC] text-blue-600 border border-slate-200 font-mono px-2 py-0.5 rounded text-[10px] select-all">admin@industrial.ai</span></span><br />
-                        <span className="inline-block mt-2">Password: <span className="bg-[#F8FAFC] text-blue-600 border border-slate-200 font-mono px-2 py-0.5 rounded text-[10px] select-all">adminpassword123</span></span>
+                        <span className="inline-block mt-2.5">Email: <span className="bg-[#F8FAFC] text-indigo-600 border border-slate-200 font-mono px-2 py-0.5 rounded text-[10px] select-all">admin@industrial.ai</span></span><br />
+                        <span className="inline-block mt-2">Password: <span className="bg-[#F8FAFC] text-indigo-600 border border-slate-200 font-mono px-2 py-0.5 rounded text-[10px] select-all">adminpassword123</span></span>
                       </p>
                     </div>
                   </div>
@@ -484,7 +484,7 @@ export default function HomePage() {
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300">
                             <User className={`w-4 h-4 transition-all duration-300 ${
-                              focusedInput === "register-name" ? "text-blue-600 scale-110" : "text-slate-400"
+                              focusedInput === "register-name" ? "text-indigo-600 scale-110" : "text-slate-400"
                             }`} />
                           </div>
                           <input
@@ -494,7 +494,7 @@ export default function HomePage() {
                             onBlur={() => setFocusedInput(null)}
                             required={mode === "register"}
                             placeholder="Elena Rostova"
-                            className="w-full pl-9 pr-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:shadow-[0_0_12px_rgba(37,99,235,0.12)] bg-white transition-all duration-300"
+                            className="w-full pl-9 pr-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:shadow-[0_0_12px_rgba(79, 70, 229,0.12)] bg-white transition-all duration-300"
                           />
                         </div>
                       </div>
@@ -504,7 +504,7 @@ export default function HomePage() {
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300">
                             <Mail className={`w-4 h-4 transition-all duration-300 ${
-                              focusedInput === "register-email" ? "text-blue-600 scale-110" : "text-slate-400"
+                              focusedInput === "register-email" ? "text-indigo-600 scale-110" : "text-slate-400"
                             }`} />
                           </div>
                           <input
@@ -515,7 +515,7 @@ export default function HomePage() {
                             onBlur={() => setFocusedInput(null)}
                             required
                             placeholder="you@company.com"
-                            className="w-full pl-9 pr-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:shadow-[0_0_12px_rgba(37,99,235,0.12)] bg-white transition-all duration-300"
+                            className="w-full pl-9 pr-3.5 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:shadow-[0_0_12px_rgba(79, 70, 229,0.12)] bg-white transition-all duration-300"
                           />
                         </div>
                       </div>
@@ -525,7 +525,7 @@ export default function HomePage() {
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300">
                             <Lock className={`w-4 h-4 transition-all duration-300 ${
-                              focusedInput === "register-pwd" ? "text-blue-600 scale-110" : "text-slate-400"
+                              focusedInput === "register-pwd" ? "text-indigo-600 scale-110" : "text-slate-400"
                             }`} />
                           </div>
                           <input
@@ -536,7 +536,7 @@ export default function HomePage() {
                             onBlur={() => setFocusedInput(null)}
                             required
                             placeholder="••••••••"
-                            className="w-full pl-9 pr-10 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:shadow-[0_0_12px_rgba(37,99,235,0.12)] bg-white transition-all duration-300"
+                            className="w-full pl-9 pr-10 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:shadow-[0_0_12px_rgba(79, 70, 229,0.12)] bg-white transition-all duration-300"
                           />
                           <button
                             type="button"
@@ -553,7 +553,7 @@ export default function HomePage() {
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300">
                             <Shield className={`w-4 h-4 transition-all duration-300 ${
-                              focusedInput === "register-role" ? "text-blue-600 scale-110" : "text-slate-400"
+                              focusedInput === "register-role" ? "text-indigo-600 scale-110" : "text-slate-400"
                             }`} />
                           </div>
                           <select
@@ -561,7 +561,7 @@ export default function HomePage() {
                             onChange={e => set("role", e.target.value)}
                             onFocus={() => setFocusedInput("register-role")}
                             onBlur={() => setFocusedInput(null)}
-                            className="w-full pl-9 pr-3 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none bg-white focus:border-blue-500 focus:shadow-[0_0_12px_rgba(37,99,235,0.12)] transition-all duration-300"
+                            className="w-full pl-9 pr-3 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none bg-white focus:border-indigo-500 focus:shadow-[0_0_12px_rgba(79, 70, 229,0.12)] transition-all duration-300"
                           >
                             <option value="ENGINEER">Engineer</option>
                             <option value="INSPECTOR">Inspector</option>
@@ -582,8 +582,8 @@ export default function HomePage() {
                         onMouseMove={handleButtonMouseMove}
                         className="shimmer-btn w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-60 cursor-pointer mt-2 relative overflow-hidden active:scale-[0.98] border-0"
                         style={{
-                          background: "radial-gradient(circle 80px at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.18), transparent), linear-gradient(135deg, #2563EB, #3B82F6)",
-                          boxShadow: "0 4px 12px rgba(37,99,235,0.2)"
+                          background: "radial-gradient(circle 80px at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.18), transparent), linear-gradient(135deg, #4F46E5, #6366F1)",
+                          boxShadow: "0 4px 12px rgba(79, 70, 229,0.2)"
                         }}
                       >
                         {loading ? "Registering…" : "Create Account →"}

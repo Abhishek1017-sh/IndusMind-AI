@@ -29,8 +29,6 @@ from app.services.asset_classifier import (
     ("Failure", "Bearing failure", {}, FAILURES),
     ("Entity", "Bearing failure", {}, FAILURES),
     ("Entity", "Unplanned shutdown incident", {}, INCIDENTS),
-    # Vendors
-    ("Organization", "Acme Bearings Supplier", {}, VENDORS),
 ])
 def test_assets_are_classified(ntype, name, props, expected):
     assert classify_asset(ntype, name, props) == expected

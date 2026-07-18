@@ -73,7 +73,7 @@ export default function IncidentsPage() {
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {incidents.map(inc => (
                     <tr key={inc.id} className="text-xs text-[#0F172A] hover:bg-[#F8FAFC] transition-colors">
-                      <td className="py-3.5 font-bold text-blue-600">{inc.id}</td>
+                      <td className="py-3.5 font-bold text-indigo-600">{inc.id}</td>
                       <td className="py-3.5 pr-2 font-bold">{inc.title}</td>
                       <td className="py-3.5 font-mono text-slate-500 font-semibold">{inc.asset}</td>
                       <td className="py-3.5 font-medium text-[#64748B]">{inc.date}</td>
@@ -101,7 +101,7 @@ export default function IncidentsPage() {
             <div className="relative h-48 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 opacity-20">
                 <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="20%" cy="50%" r="5" fill="#2563EB" />
+                  <circle cx="20%" cy="50%" r="5" fill="#4F46E5" />
                   <circle cx="45%" cy="30%" r="6" fill="#F59E0B" />
                   <circle cx="45%" cy="70%" r="6" fill="#DC2626" />
                   <circle cx="75%" cy="50%" r="5" fill="#16A34A" />
@@ -126,11 +126,11 @@ export default function IncidentsPage() {
           {/* AI recommendations */}
           <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-blue-600" /> Proactive Mitigation SOPs
+              <Sparkles className="w-4 h-4 text-indigo-600" /> Proactive Mitigation SOPs
             </h3>
             <div className="space-y-3">
-              <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl space-y-1">
-                <p className="text-xs font-bold text-blue-800">1. Inlet Filtration Auditing</p>
+              <div className="p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl space-y-1">
+                <p className="text-xs font-bold text-indigo-800">1. Inlet Filtration Auditing</p>
                 <p className="text-[11px] text-slate-700 leading-relaxed font-semibold">Install dual safety strainer units prior to Pump P-101. Estimated reliability extension: 420 hrs.</p>
               </div>
               <div className="p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl space-y-1">
@@ -150,7 +150,7 @@ export default function IncidentsPage() {
                 <div key={pat.title} className="p-3 border border-[#E2E8F0] rounded-xl space-y-2 hover:bg-[#F8FAFC] transition-colors">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-[#0F172A]">{pat.title}</span>
-                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{pat.confidence} Match</span>
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{pat.confidence} Match</span>
                   </div>
                   <p className="text-[11px] text-[#64748B] leading-relaxed font-semibold">{pat.desc}</p>
                 </div>

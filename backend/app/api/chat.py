@@ -14,6 +14,21 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+@router.get("/suggestions")
+def chat_suggestions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Document-grounded starter questions for the chat welcome screen — built from
+    the user's own uploaded documents (real assets, detected regulations,
+    filenames), never hardcoded demo prompts. Empty list when nothing is
+    uploaded yet.
+    """
+    from app.services.chat_suggestions import generate_suggestions
+    return {"suggestions": generate_suggestions(db, current_user)}
+
+
 @router.post("/", response_model=ChatResponse)
 def ask_chat_agent(
     query: ChatQuery,
@@ -29,7 +44,7 @@ def ask_chat_agent(
     PDF report from the uploaded documents (persisted, so it shows up in the
     Reports section) instead of only claiming to.
     """
-    result = planner_agent.handle_query(query.message, user_id=str(current_user.id))
+    result = planner_agent.handle_query(query.message, user_id=str(current_user.id), db=db)
 
     if result.get("intent") == "REPORTS":
         result = _handle_report_request(db, current_user, query.message, result)

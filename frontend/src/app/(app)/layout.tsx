@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, Brain, Search, X, Command, MessageSquare, Send, Sparkles, FileText, Settings, Wrench, ShieldCheck, BarChart3 } from "lucide-react";
+import { Menu, Brain, Search, X, Command, MessageSquare, Send, FileText, Settings, Wrench, ShieldCheck, BarChart3 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { ChatProvider } from "@/context/ChatContext";
@@ -26,14 +26,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const assistantEndRef = useRef<HTMLDivElement>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Trigger search sequence loader on input change
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      setIsSearching(true);
-    } else {
-      setIsSearching(false);
-    }
-  }, [searchQuery]);
+  // isSearching is driven directly by the search input's onChange handler
+  // (see the command-palette input below) rather than a state-syncing effect,
+  // which React flags as a cascading-render anti-pattern.
 
   // Ctrl + K Listener
   useEffect(() => {
@@ -50,6 +45,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoading && !token) router.replace("/");
   }, [isLoading, token, router]);
+
+
 
   useEffect(() => {
     if (assistantOpen) {
@@ -100,7 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ChatProvider>
       <PageTransitionBar />
-      <div className={`flex ${pathname === "/chat" ? "h-screen max-h-screen overflow-hidden" : "min-h-screen"} bg-[#FAFAF8] relative overflow-hidden`}>
+      <div className="relative flex h-screen bg-[#F8FAFC] overflow-hidden">
         {/* Animated backdrop mesh circles */}
         <div className="absolute top-[-150px] left-[-150px] bg-mesh-circle-1 z-0" />
         <div className="absolute bottom-[-150px] right-[-150px] bg-mesh-circle-2 z-0" />
@@ -112,9 +109,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
         
-        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"} flex flex-col ${pathname === "/chat" ? "h-screen max-h-screen overflow-hidden" : "min-h-screen"} overflow-x-hidden z-10`}>
+        <div
+          className={`
+            flex
+            flex-1
+            flex-col
+            min-h-0
+            overflow-hidden
+            transition-all
+            duration-300
+            z-10
+            ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"}
+          `}
+        >
           {/* White top navigation bar */}
-          <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 bg-white border-b border-[#E2E8F0] shadow-sm">
+          <header className="flex-shrink-0 z-20 flex items-center justify-between px-6 py-3 bg-white border-b border-[#E2E8F0] shadow-sm">
             <div className="flex items-center gap-3">
               <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-[#64748B] hover:text-[#0F172A] p-1.5 cursor-pointer rounded-lg hover:bg-[#F1F5F9]" aria-label="Open menu">
                 <Menu className="w-5 h-5" />
@@ -122,13 +131,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Large centered AI Search bar */}
-            <div className="relative w-full max-w-md mx-4">
+            <div className="relative w-full max-w-xl mx-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
                 onClick={() => setPaletteOpen(true)}
                 readOnly
                 placeholder="Ask anything about your plant... (Ctrl + K)"
-                className="w-full pl-9 pr-20 py-1.5 text-xs text-[#0F172A] placeholder:text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg outline-none cursor-pointer hover:border-[#3B82F6] transition-all focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                className="w-full pl-9 pr-20 py-1.5 text-xs text-[#0F172A] placeholder:text-[#94A3B8] bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg outline-none cursor-pointer hover:border-[#6366F1] transition-all focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/10"
               />
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-[#64748B] bg-white border border-[#E2E8F0] rounded">
                 <Command className="w-2 h-2" />K
@@ -141,7 +150,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
 
-          <main className={`flex-1 flex flex-col min-h-0 ${pathname === "/chat" ? "pb-0 overflow-hidden" : "pb-16"}`}>{children}</main>
+          <main
+            className={`
+              flex
+              flex-1
+              flex-col
+              min-h-0
+              ${pathname === "/chat" ? "overflow-hidden" : "overflow-y-auto pb-16"}
+            `}
+          >
+            {children}
+          </main>
         </div>
 
         {/* Global Command Palette */}
@@ -153,7 +172,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <input
                   autoFocus
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setSearchQuery(value);
+                    setIsSearching(value.trim().length > 0);
+                  }}
                   placeholder="Search pages or ask plant queries..."
                   className="flex-1 text-sm text-[#0F172A] outline-none placeholder:text-[#94A3B8]"
                 />
@@ -176,7 +199,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           onClick={() => navTo(cmd.path)}
                           className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-[#0F172A] font-semibold rounded-lg hover:bg-[#F1F5F9] cursor-pointer transition-colors text-left bg-transparent border-0"
                         >
-                          <cmd.icon className="w-4 h-4 text-blue-600" />
+                          <cmd.icon className="w-4 h-4 text-indigo-600" />
                           <span>{cmd.name}</span>
                         </button>
                       ))
@@ -198,14 +221,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Global Floating AI Assistant Drawer Panel */}
         <div
-          className={`fixed right-0 top-0 bottom-0 h-screen w-[380px] max-w-full bg-white shadow-2xl z-50 flex flex-col border-l border-[#E2E8F0] transition-transform duration-300 ease-in-out ${
+          className={`fixed right-0 top-0 bottom-0 h-screen w-[420px] max-w-full bg-white shadow-2xl z-50 flex flex-col border-l border-[#E2E8F0] transition-transform duration-300 ease-in-out ${
             assistantOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-[#E2E8F0]">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-indigo-600 to-indigo-500">
                 <Brain className="w-4 h-4 text-white" />
               </div>
               <div>
@@ -226,7 +249,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-sm ${
                   msg.sender === "user"
-                    ? "bg-blue-600 text-white font-semibold rounded-tr-none"
+                    ? "bg-indigo-600 text-white font-semibold rounded-tr-none"
                     : "bg-white border border-[#E2E8F0] text-[#0F172A] font-medium rounded-tl-none"
                 }`}>
                   {msg.text}
@@ -248,7 +271,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <button
                   key={chip.label}
                   onClick={() => setAssistantInput(chip.text)}
-                  className="px-2.5 py-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-full text-[10px] font-bold text-slate-600 hover:text-blue-600 transition-all cursor-pointer"
+                  className="px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-full text-[10px] font-bold text-slate-600 hover:text-indigo-600 transition-all cursor-pointer"
                 >
                   {chip.label}
                 </button>
@@ -267,10 +290,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   onChange={e => setAssistantInput(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAssistantSend()}
                   placeholder="Ask a quick plant question..."
-                  className="w-full pl-7 pr-3 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition-all"
+                  className="w-full pl-7 pr-3 py-2 text-xs text-[#0F172A] border border-[#E2E8F0] rounded-xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 bg-white transition-all"
                 />
               </div>
-              <button onClick={handleAssistantSend} className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-750 transition-colors cursor-pointer border-0 shadow-sm">
+              <button onClick={handleAssistantSend} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors cursor-pointer border-0 shadow-sm">
                 <Send className="w-4 h-4" />
               </button>
             </div>
@@ -281,7 +304,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {!assistantOpen && pathname !== "/chat" && (
           <button
             onClick={() => setAssistantOpen(true)}
-            className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-blue-500 text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all cursor-pointer border-0 z-40 group"
+            className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all cursor-pointer border-0 z-40 group"
           >
             <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">

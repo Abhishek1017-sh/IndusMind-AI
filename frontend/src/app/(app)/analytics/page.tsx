@@ -7,7 +7,7 @@ export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState("30d");
 
   const highlightMetrics = [
-    { label: "Operational Downtime Saved", value: "142.5 hrs", desc: "Equivalent to $310k in overheads", icon: Clock, color: "#2563EB" },
+    { label: "Operational Downtime Saved", value: "142.5 hrs", desc: "Equivalent to $310k in overheads", icon: Clock, color: "#4F46E5" },
     { label: "Estimated Maintenance Savings", value: "$241,800", desc: "Through early fail prediction", icon: DollarSign, color: "#16A34A" },
     { label: "Average Reliability Index", value: "98.9%", desc: "+1.2% year-on-year shift", icon: Cpu, color: "#06B6D4" },
     { label: "Checklist Deviations Caught", value: "89", desc: "PESO / OISD audits passed", icon: ShieldCheck, color: "#F59E0B" }
@@ -19,7 +19,7 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-500">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-indigo-600 to-indigo-500">
               <LineChart className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">System Analytics</h1>
@@ -69,8 +69,8 @@ export default function AnalyticsPage() {
             <svg className="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2563EB" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
                 </linearGradient>
               </defs>
               {/* Grid Lines */}
@@ -80,13 +80,13 @@ export default function AnalyticsPage() {
               {/* Chart Area */}
               <path d="M 0 180 L 100 150 L 200 130 L 300 90 L 400 60 L 500 40 L 500 200 L 0 200 Z" fill="url(#chartGrad)" />
               {/* Chart Line */}
-              <path d="M 0 180 L 100 150 L 200 130 L 300 90 L 400 60 L 500 40" fill="none" stroke="#2563EB" strokeWidth="3" />
+              <path d="M 0 180 L 100 150 L 200 130 L 300 90 L 400 60 L 500 40" fill="none" stroke="#4F46E5" strokeWidth="3" />
               {/* Nodes */}
-              <circle cx="100" cy="150" r="4" fill="#2563EB" />
-              <circle cx="200" cy="130" r="4" fill="#2563EB" />
-              <circle cx="300" cy="90" r="4" fill="#2563EB" />
-              <circle cx="400" cy="60" r="4" fill="#2563EB" />
-              <circle cx="500" cy="40" r="4" fill="#2563EB" />
+              <circle cx="100" cy="150" r="4" fill="#4F46E5" />
+              <circle cx="200" cy="130" r="4" fill="#4F46E5" />
+              <circle cx="300" cy="90" r="4" fill="#4F46E5" />
+              <circle cx="400" cy="60" r="4" fill="#4F46E5" />
+              <circle cx="500" cy="40" r="4" fill="#4F46E5" />
             </svg>
             <div className="absolute left-2 top-2 text-[9px] font-bold text-[#64748B] space-y-1">
               <p>500 entities</p>
@@ -113,19 +113,19 @@ export default function AnalyticsPage() {
           {/* Custom SVG Bar Chart */}
           <div className="h-56 w-full relative flex items-end justify-between gap-4 px-2">
             <div className="flex flex-col items-center gap-2 w-full">
-              <div className="bg-blue-200 border-t border-blue-500 rounded-md w-full" style={{ height: "140px" }} />
+              <div className="bg-indigo-200 border-t border-indigo-500 rounded-md w-full" style={{ height: "140px" }} />
               <span className="text-[9px] font-bold text-[#64748B]">Wk 1</span>
             </div>
             <div className="flex flex-col items-center gap-2 w-full">
-              <div className="bg-blue-300 border-t border-blue-600 rounded-md w-full" style={{ height: "110px" }} />
+              <div className="bg-indigo-300 border-t border-indigo-600 rounded-md w-full" style={{ height: "110px" }} />
               <span className="text-[9px] font-bold text-[#64748B]">Wk 2</span>
             </div>
             <div className="flex flex-col items-center gap-2 w-full">
-              <div className="bg-blue-400 border-t border-blue-600 rounded-md w-full" style={{ height: "85px" }} />
+              <div className="bg-indigo-400 border-t border-indigo-600 rounded-md w-full" style={{ height: "85px" }} />
               <span className="text-[9px] font-bold text-[#64748B]">Wk 3</span>
             </div>
             <div className="flex flex-col items-center gap-2 w-full">
-              <div className="bg-[#2563EB] border-t border-blue-700 rounded-md w-full" style={{ height: "50px" }} />
+              <div className="bg-[#4F46E5] border-t border-indigo-700 rounded-md w-full" style={{ height: "50px" }} />
               <span className="text-[9px] font-bold text-[#64748B]">Wk 4</span>
             </div>
           </div>

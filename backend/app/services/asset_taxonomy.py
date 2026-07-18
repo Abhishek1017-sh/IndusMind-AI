@@ -83,8 +83,9 @@ ASSET_TAXONOMY: List[AssetTypeSpec] = [
                   node_types=["database"]),
     AssetTypeSpec("Server", GROUP_ASSET,
                   strong=["application server", "web server", "rack server", "blade server", "hypervisor",
-                          "virtual machine", "compute node", "scada server", "historian server"],
-                  weak=["server", "hypervisor"],
+                          "virtual machine", "compute node", "scada server", "historian server",
+                          "rack array", "rack arrays", "server rack", "compute cluster"],
+                  weak=["server", "hypervisor", "rack", "node"],
                   node_types=["server"]),
     AssetTypeSpec("PLC", GROUP_ASSET,
                   strong=["programmable logic controller", "plc rack", "control system", "dcs "],
@@ -106,7 +107,8 @@ ASSET_TAXONOMY: List[AssetTypeSpec] = [
     AssetTypeSpec("Valve", GROUP_ASSET, weak=["valve"], node_types=["valve"]),
     AssetTypeSpec("Conveyor", GROUP_ASSET, weak=["conveyor", "belt line"], node_types=["conveyor"]),
     AssetTypeSpec("Vehicle", GROUP_ASSET,
-                  strong=["lift truck", "pallet jack"],
+                  strong=["lift truck", "pallet jack", "electric vehicle", "delivery vehicle",
+                          "delivery ev", "ev unit", "ev units", "ev fleet"],
                   weak=["vehicle", "truck", "forklift", "crane", "van", "loader", "excavator",
                         "trailer", "tractor", "bulldozer", "fleet"],
                   node_types=["vehicle", "fleet"]),
@@ -158,15 +160,21 @@ ASSET_TYPES: List[str] = [s.asset_type for s in ASSET_TAXONOMY]
 
 
 # ── Graph node types that can NEVER be a maintainable asset ──────────────────
-# People, competencies, temporal/contact facts, procedures. Records/SOPs are
-# surfaced as history/related documents, not as asset cards.
+# People, competencies, temporal/contact facts, procedures, and business
+# parties/records. These belong to other modules (Knowledge Graph, Compliance,
+# CRM/BI), never Maintenance. Records/SOPs are surfaced as history/related
+# documents, not as asset cards.
 NEVER_ASSET_NODE_TYPES = {
     "person", "engineer", "technician", "employee", "operator", "contact",
     "skill", "date", "project", "event", "document", "sop", "certification",
-    "training", "inspectionreport", "report",
+    "training", "inspectionreport", "report", "record",
+    # business parties / records — route elsewhere, not Maintenance
+    "company", "customer", "client", "competitor", "supplier", "vendor",
+    "partner", "organization", "opportunity", "account", "lead", "contract",
+    "regulation", "standard", "policy", "invoice", "kpi", "metric",
 }
 
-# ── Business / HR / Finance / Sales / Legal entities to exclude entirely ─────
+# ── Business / HR / Finance / Sales / Legal / CRM entities to exclude ─────────
 # If any of these terms appears in an entity's name it is NOT a maintainable
 # asset, regardless of how the extractor typed it. Configurable, generic.
 BUSINESS_EXCLUSION_TERMS = [
@@ -177,7 +185,34 @@ BUSINESS_EXCLUSION_TERMS = [
     "revenue", "profit", "corporate", "campus", "zone", "territory", "market",
     "subsidiary", "board", "reception", "cafeteria", "meeting room", "committee",
     "shareholder", "investor", "tax",
+    # sales / CRM / business-intelligence noise
+    "competitor", "prospect", "lead ", "upsell", "up-sell", "cross-sell",
+    "pipeline", "quota", "churn", "retention", "crm", "business intelligence",
+    "sales intelligence", "campaign", "brand", "profile", "refinement",
+    "partnership", "acquisition", "merger", "market share", "opportunity",
+    "deal ", "forecast", "roadmap", "go-to-market", "stakeholder", "strategic",
+    "engagement", "relationship management", "onboarding", "renewal",
 ]
+
+# ── Organization-name detection ──────────────────────────────────────────────
+# Company-designator words that, when they end an entity's name, mark it as an
+# organization (a customer / competitor / supplier / partner) rather than a
+# maintainable asset — e.g. "Apex Global Solutions", "LogiTech Systems",
+# "Vanguard Logistics Global". Checked only as the LAST token so real assets
+# that merely contain such a word (e.g. "Control Systems Panel") are safe.
+ORGANIZATION_TAIL_WORDS = {
+    "inc", "inc.", "llc", "ltd", "ltd.", "corp", "corp.", "corporation", "co",
+    "co.", "plc", "gmbh", "ag", "sa", "pvt", "limited", "solutions", "systems",
+    "technologies", "global", "group", "holdings", "enterprises",
+    "international", "industries", "partners", "associates", "ventures",
+    "consulting", "company", "networks", "labs", "worldwide", "logistics",
+}
+
+
+def looks_like_organization(name: str) -> bool:
+    """True if the entity name ends with a company designator (see above)."""
+    tokens = str(name or "").strip().lower().replace(",", " ").split()
+    return bool(tokens) and tokens[-1] in ORGANIZATION_TAIL_WORDS
 
 
 # ── Confidence bands (req 10) ────────────────────────────────────────────────

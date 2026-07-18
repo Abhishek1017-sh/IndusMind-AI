@@ -161,7 +161,7 @@ Output ONLY the category name ("COMPLIANCE", "MAINTENANCE", "KNOWLEDGE", "REPORT
             logger.error(f"Intent classification failed: {e}")
             return "GENERAL_QA"
 
-    def handle_query(self, query: str, user_id: str) -> Dict[str, Any]:
+    def handle_query(self, query: str, user_id: str, db: Any = None) -> Dict[str, Any]:
         """
         Orchestration flow:
         1. Classifies intent.
@@ -170,6 +170,9 @@ Output ONLY the category name ("COMPLIANCE", "MAINTENANCE", "KNOWLEDGE", "REPORT
         3. Invokes specific agent.
         4. Injects agent log trace steps for the frontend Agent Activity log.
         5. Formulates structured response conforming to the ChatResponse schema.
+
+        `db` is the request's SQLAlchemy session, reused by the hybrid retriever
+        for its PostgreSQL full-text / BM25 passes (see vector_store.search).
         """
         logger.info(f"Planner Agent received query: {query} (user_id={user_id})")
 
@@ -184,11 +187,12 @@ Output ONLY the category name ("COMPLIANCE", "MAINTENANCE", "KNOWLEDGE", "REPORT
         # 2. Retrieve Context (Hybrid RAG): FAISS + keyword chunks (see
         # vector_store.search) scoped to this user's own documents, plus any
         # knowledge-graph entities mentioned by name in the query.
-        agent_logs.append({"agent_name": "Retriever Service", "status": "COMPLETED", "log_message": "Fetched hybrid FAISS/keyword text chunks and knowledge graph entities."})
-        # k=8 (rather than a bare top-5) so a thorough question ("what do I need
-        # to know about X") gets enough retrieved material to answer completely,
-        # not just the single closest-matching snippet.
-        vector_chunks = vector_store.search(query, k=8, user_id=user_id)
+        agent_logs.append({"agent_name": "Retriever Service", "status": "COMPLETED", "log_message": "Fetched hybrid FAISS + PostgreSQL full-text + BM25 chunks and knowledge graph entities."})
+        # Hybrid retrieval (FAISS semantic + PostgreSQL FTS + BM25), alias-expanded
+        # and reranked with RRF. Retrieve the Top 10 so a thorough question gets
+        # enough material; the answer agents then send only the best 5 to Gemini
+        # (see gemini_service.format_chunks_as_context).
+        vector_chunks = vector_store.search(query, k=10, user_id=user_id, db=db)
         graph_triples, graph_visual_context = _graph_entity_context(query, user_id)
 
         # 3. Route & Process
