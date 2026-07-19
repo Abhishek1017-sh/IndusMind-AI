@@ -46,26 +46,42 @@ def _build_engine():
 
     connect_args = {}
     
-    # 3. Handle sslmode / ssl parameter for pg8000 to work out of the box with SSL-enforced dbs (e.g. Render/Supabase)
-    if "sslmode" in url or "ssl=" in url:
-        import urllib.parse
-        parsed = urllib.parse.urlparse(url)
+    # 3. Clean query string parameters for pg8000 (like sslmode, channel_binding) and map to ssl_context
+    # pg8000 does not accept arbitrary query parameters in connection strings and will throw type errors.
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    
+    if parsed.query:
         query_params = urllib.parse.parse_qs(parsed.query)
-        sslmode = query_params.pop("sslmode", [None])[0]
-        ssl_val = query_params.pop("ssl", [None])[0]
+        sslmode = query_params.get("sslmode", [None])[0]
+        ssl_val = query_params.get("ssl", [None])[0]
         
-        # Re-build query string without sslmode/ssl to prevent pg8000 driver parsing errors
-        new_query = urllib.parse.urlencode(query_params, doseq=True)
-        parsed = parsed._replace(query=new_query)
+        # Check if SSL connection was requested
+        is_ssl_requested = (
+            (sslmode in ["require", "prefer", "allow", "verify-ca", "verify-full"]) or
+            (ssl_val in ["true", "1", "require"]) or
+            ("neon.tech" in url)
+        )
+        
+        # Clear all query params to prevent pg8000 connect() validation crashes
+        parsed = parsed._replace(query="")
         url = urllib.parse.urlunparse(parsed)
         
-        # Configure SSL context for pg8000
+        if is_ssl_requested:
+            import ssl
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            connect_args["ssl_context"] = ssl_context
+            logger.info("SSL connection configured for PostgreSQL (sslmode/ssl/channel_binding parameters detected and mapped to ssl_context).")
+    elif "neon.tech" in url:
+        # Auto-enable SSL for Neon connections even if query string is empty
         import ssl
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         connect_args["ssl_context"] = ssl_context
-        logger.info("SSL connection configured for PostgreSQL (sslmode/ssl parameter detected and mapped to ssl_context).")
+        logger.info("SSL connection configured for PostgreSQL (Neon database URL detected).")
 
     engine = create_engine(url, pool_pre_ping=True, pool_size=10, max_overflow=20, connect_args=connect_args)
     try:
